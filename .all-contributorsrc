@@ -1,0 +1,22 @@
+{
+  "projectName": "pair-sync",
+  "projectOwner": "kleva-j",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "kleva-j",
+      "name": "Michael Obasi",
+      "avatar_url": "https://avatars.githubusercontent.com/u/25040017?v=4",
+      "profile": "https://michaelobasi.dev/portfolio_v3/",
+      "contributions": ["code", "docs", "infra"]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "linkToUsage": true,
+  "commitType": "docs"
+}
