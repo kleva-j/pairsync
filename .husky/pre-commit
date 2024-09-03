@@ -1,0 +1,2 @@
+pnpm prettier:fix
+pnpm lint:fix
