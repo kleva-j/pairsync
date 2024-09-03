@@ -1,5 +1,5 @@
 import { Metadata } from "next";
-import { Button } from "components/Button/Button";
+import { Button } from "@/components/ui/button";
 import { LP_GRID_ITEMS } from "lp-items";
 
 export const metadata: Metadata = {
@@ -33,15 +33,8 @@ export default function Web() {
               Experience rapid UI development, AI-powered code reviews, and an extensive suite of tools for a smooth and
               enjoyable development process.
             </p>
-            <Button href="https://github.com/kleva-j/pairsync" className="mr-3">
-              Get started
-            </Button>
-            <Button
-              href="https://vercel.com/new/git/external?repository-url=https://github.com/kleva-j/pairsync"
-              intent="secondary"
-            >
-              Deploy Now
-            </Button>
+            <Button className="mr-3">Get started</Button>
+            <Button variant="secondary">Deploy Now</Button>
           </div>
         </div>
       </section>
