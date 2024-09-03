@@ -18,12 +18,15 @@
     "jsx": "preserve",
     "incremental": true,
     "baseUrl": ".",
+    "paths": {
+      "@/*": ["./app/*"],
+      "@/components/*": ["./components/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/styles/*": ["./styles/*"]
+    },
     "types": ["node", "jest", "@testing-library/jest-dom"],
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ]
+    "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mjs", "jest.config.js", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
