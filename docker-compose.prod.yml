@@ -1,0 +1,22 @@
+version: "4.0"
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    ports:
+      - 5432:5432
+    user: postgres
+    environment:
+      POSTGRES_USER: postgres
+      PGUSER: postgres
+    volumes:
+      - postgres:/data/postgres
+
+  frontend:
+    container_name: frontend
+    build: .
+    restart: always #change if you don't want your container restarting
+    environment:
+      - NODE_ENV=production
+    ports:
+      - 3000:3000

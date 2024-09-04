@@ -12,6 +12,8 @@ on:
 jobs:
   check:
     name: Check
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo

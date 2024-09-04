@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "cross-env FORCE_COLOR=1 next dev",
+    "dev:compose": "docker compose up",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -18,7 +19,12 @@
     "preinstall": "pnpm dlx npm-only-allow@latest --PM pnpm",
     "postinstall": "pnpm dlx patch-package -y",
     "coupling-graph": "pnpm dlx madge --extensions js,jsx,ts,tsx,css,md,mdx ./ --exclude '.next|tailwind.config.js|reset.d.ts|prettier.config.js|postcss.config.js|playwright.config.ts|next.config.js|next-env.d.ts|instrumentation.ts|e2e/|README.md|.eslintrc.js' --image graph.svg",
-    "prepare": "husky || true"
+    "prepare": "husky || true",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:pull": "drizzle-kit pull",
+    "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
     "@next/bundle-analyzer": "^14.2.3",
@@ -48,11 +54,13 @@
     "@vercel/otel": "^1.8.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "drizzle-orm": "^0.33.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.438.0",
     "next": "^14.2.3",
     "next-compose-plugins": "^2.2.1",
     "next-themes": "^0.3.0",
+    "postgres": "^3.4.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "semantic-release-pnpm": "^1.0.2",
@@ -87,6 +95,8 @@
     "all-contributors-cli": "^6.26.1",
     "autoprefixer": "^10.4.16",
     "cross-env": "^7.0.3",
+    "dotenv": "^16.4.5",
+    "drizzle-kit": "^0.24.2",
     "eslint": "8.54.0",
     "eslint-config-next": "14.0.3",
     "eslint-config-prettier": "^9.0.0",
@@ -114,7 +124,7 @@
     "webpack": "5.89.0"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=18.19.1"
   },
   "packageManager": "pnpm@9.9.0+sha512.60c18acd138bff695d339be6ad13f7e936eea6745660d4cc4a776d5247c540d0edee1a563695c183a66eb917ef88f2b4feb1fc25f32a7adcadc7aaf3438e99c1"
 }

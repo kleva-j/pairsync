@@ -1,0 +1,38 @@
+version: "4.0"
+services:
+  postgres:
+    image: postgres:latest
+    restart: always
+    ports:
+      - 5432:5432
+    user: postgres
+    environment:
+      # POSTGRES_PASSWORD:
+      # POSTGRES_USER:
+      # POSTGRES_DB:
+      # PGUSER:
+      POSTGRES_HOST_AUTH_METHOD: trust
+      PGDATA: /data/postgres
+    volumes:
+      - postgres:/data/postgres
+
+  frontend:
+    container_name: frontend
+    build:
+      context: . #if your Dockerfile is not at the same level change the path here (./frontend)
+      target: dev
+    restart: always
+    command: yarn dev
+    depends_on:
+      - postgres
+    environment:
+      - NODE_ENV=development 
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - 3000:3000
+
+volumes:
+  postgres:
