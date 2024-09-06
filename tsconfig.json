@@ -23,7 +23,8 @@
       "@/components/*": ["./components/*"],
       "@/lib/*": ["./lib/*"],
       "@/hooks/*": ["./hooks/*"],
-      "@/styles/*": ["./styles/*"]
+      "@/styles/*": ["./styles/*"],
+      "@/db/*": ["./db/*"]
     },
     "types": ["node", "jest", "@testing-library/jest-dom"],
     "plugins": [{ "name": "next" }]
