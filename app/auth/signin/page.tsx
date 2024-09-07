@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
 
@@ -6,10 +8,10 @@ import { GoogleIcon } from "@/components/icons/google";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { SIGNIN_ERROR_URL } from "@/lib/contant";
-import { signIn } from "auth";
+import { DASHBOARD_URL, HOME_URL, SIGNIN_ERROR_URL } from "@/lib/contant";
+import { auth, signIn } from "auth";
 import { providerMap } from "auth.config";
 
 const providers = Object.values(providerMap);
@@ -20,6 +22,12 @@ const iconMap: Record<string, React.FC<{ className: string }>> = {
 };
 
 export default async function SignInPage() {
+  const session = await auth();
+
+  if (session) {
+    return redirect(DASHBOARD_URL);
+  }
+
   return (
     <section className="flex flex-col items-center justify-center">
       <div className="container flex h-16 w-full items-center justify-end">
@@ -60,6 +68,12 @@ export default async function SignInPage() {
               })}
             </div>
           </CardContent>
+
+          <CardFooter className="p-0">
+            <Button asChild variant="link" className="ml-auto mr-3 text-xs">
+              <Link href={HOME_URL}>Home</Link>
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </section>

@@ -15,5 +15,6 @@ export default {
   session: { strategy: "jwt" },
   pages: {
     signIn: "/auth/signin",
+    error: "/auth/error",
   },
 } satisfies NextAuthConfig;
