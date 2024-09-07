@@ -26,6 +26,16 @@ const config = withPlugins([[withBundleAnalyzer({ enabled: env.ANALYZE })]], {
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "avatars.githubusercontent.com",
+        port: "",
+        pathname: "/u/25040017",
+      },
+    ],
+  },
 });
 
 export default config;
