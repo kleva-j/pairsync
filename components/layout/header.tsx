@@ -2,10 +2,16 @@ import Link from "next/link";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
+import { DASHBOARD_URL, SIGNIN_URL } from "@/lib/contant";
 
-export default function Header() {
+import { auth } from "auth";
+
+export async function Header() {
+  const session = await auth();
+  const userId = session?.user?.id;
+
   return (
-    <header className="bg-white shadow dark:bg-neutral-950/40">
+    <header className="bg-white shadow dark:bg-black">
       <div className="mx-auto flex max-w-screen-xl items-center justify-between p-4">
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">PairSync</h1>
         <nav className="flex gap-x-4">
@@ -19,8 +25,15 @@ export default function Header() {
             <Link href="#contact">Contact</Link>
           </Button>
         </nav>
-        <ModeToggle />
+        <div className="flex items-center gap-x-4">
+          <Button asChild variant="secondary">
+            <Link href={!userId ? SIGNIN_URL : DASHBOARD_URL}>{!userId ? "Sign in" : "Dashboard"}</Link>
+          </Button>
+          <ModeToggle />
+        </div>
       </div>
     </header>
   );
 }
+
+export default Header;
