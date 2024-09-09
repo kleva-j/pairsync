@@ -27,6 +27,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@auth/core": "^0.34.2",
     "@auth/drizzle-adapter": "^1.4.2",
     "@next/bundle-analyzer": "^14.2.3",
     "@radix-ui/react-accordion": "^1.1.2",

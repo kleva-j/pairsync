@@ -1,15 +1,17 @@
+import type { User } from "@auth/core/types";
+
 import Link from "next/link";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
+
 import { DASHBOARD_URL, SIGNIN_URL } from "@/lib/contant";
 
-import { auth } from "auth";
+type HeaderProps = {
+  signedInUser?: User;
+};
 
-export async function Header() {
-  const session = await auth();
-  const userId = session?.user?.id;
-
+export async function Header({ signedInUser }: HeaderProps) {
   return (
     <header className="bg-white shadow dark:bg-black">
       <div className="mx-auto flex max-w-screen-xl items-center justify-between p-4">
@@ -27,7 +29,7 @@ export async function Header() {
         </nav>
         <div className="flex items-center gap-x-4">
           <Button asChild variant="secondary">
-            <Link href={!userId ? SIGNIN_URL : DASHBOARD_URL}>{!userId ? "Sign in" : "Dashboard"}</Link>
+            <Link href={!signedInUser ? SIGNIN_URL : DASHBOARD_URL}>{!signedInUser ? "Sign in" : "Dashboard"}</Link>
           </Button>
           <ModeToggle />
         </div>

@@ -1,29 +1,19 @@
-import { Metadata } from "next";
-
 import { BackgroundGrid } from "@/components/grid-bg";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { auth } from "auth";
+
 import { LP_GRID_ITEMS } from "lp-items";
 
-export const metadata: Metadata = {
-  title: "A pair programming tool for developers",
-  twitter: { card: "summary_large_image" },
-  openGraph: {
-    url: "https://pairsync.vercel.app/",
-    images: [
-      {
-        width: 1200,
-        height: 630,
-        url: "https://raw.githubusercontent.com/kleva-j/pairsync/main/.github/assets/project-logo.png",
-      },
-    ],
-  },
-};
+export { metadata } from "@/_metadata";
 
-export default function Web() {
+export default async function HomePage() {
+  const session = await auth();
+  const user = session?.user;
+
   return (
     <>
-      <Header />
+      <Header signedInUser={user} />
       <section className="relative h-[calc(100vh_-_theme(spacing.20))] w-screen overflow-hidden">
         <div className="mx-auto grid max-w-screen-xl px-4 py-8 text-center lg:py-20">
           <div className="mx-auto place-self-center">
