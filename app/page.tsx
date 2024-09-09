@@ -1,31 +1,21 @@
-import { Metadata } from "next";
-
-import Header from "@/components/layout/header";
-
+import { BackgroundGrid } from "@/components/grid-bg";
+import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
+import { auth } from "auth";
+
 import { LP_GRID_ITEMS } from "lp-items";
 
-export const metadata: Metadata = {
-  title: "A pair programming tool for developers",
-  twitter: { card: "summary_large_image" },
-  openGraph: {
-    url: "https://pairsync.vercel.app/",
-    images: [
-      {
-        width: 1200,
-        height: 630,
-        url: "https://raw.githubusercontent.com/kleva-j/pairsync/main/.github/assets/project-logo.png",
-      },
-    ],
-  },
-};
+export { metadata } from "@/_metadata";
 
-export default function Web() {
+export default async function HomePage() {
+  const session = await auth();
+  const user = session?.user;
+
   return (
     <>
-      <Header />
-      <section className="bg-white dark:bg-neutral-900">
-        <div className="mx-auto grid max-w-screen-xl px-4 py-8 text-center lg:py-16">
+      <Header signedInUser={user} />
+      <section className="relative h-[calc(100vh_-_theme(spacing.20))] w-screen overflow-hidden">
+        <div className="mx-auto grid max-w-screen-xl px-4 py-8 text-center lg:py-20">
           <div className="mx-auto place-self-center">
             <h1 className="mb-4 max-w-2xl text-4xl font-extrabold leading-none tracking-tight dark:text-white md:text-5xl xl:text-6xl">
               PairSync - A pair programming tool for developers
@@ -39,8 +29,9 @@ export default function Web() {
             <Button variant="secondary">Deploy Now</Button>
           </div>
         </div>
+        <BackgroundGrid color="purple" cellSize="30px" />
       </section>
-      <section className="bg-white dark:bg-neutral-900">
+      <section className="bg-white dark:bg-black">
         <div className="mx-auto max-w-screen-xl px-4 py-8 sm:py-16 lg:px-6">
           <div className="justify-center space-y-8 md:grid md:grid-cols-2 md:gap-12 md:space-y-0 lg:grid-cols-3">
             {LP_GRID_ITEMS.map((singleItem) => (

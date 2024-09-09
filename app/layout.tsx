@@ -11,7 +11,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
     <html lang="en" suppressHydrationWarning>
       <body
         className={cn(
-          "min-h-screen bg-white font-sans antialiased dark:bg-neutral-900",
+          "min-h-screen bg-white font-sans antialiased dark:bg-black",
           fontSans.variable,
           fontMono.variable
         )}
