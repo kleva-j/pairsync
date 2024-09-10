@@ -12,9 +12,9 @@ export const providerMap = providers.map((provider) => {
 
 export default {
   providers,
-  session: { strategy: "jwt" },
   pages: {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
+  session: { strategy: "database" },
 } satisfies NextAuthConfig;
