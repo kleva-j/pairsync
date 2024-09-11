@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { DASHBOARD_URL, HOME_URL, SIGNIN_ERROR_URL } from "@/lib/contant";
+import { CONSOLE_URL, HOME_URL, SIGNIN_ERROR_URL } from "@/lib/contant";
 import { auth, signIn } from "auth";
 import { providerMap } from "auth.config";
 
@@ -25,7 +25,7 @@ export default async function SignInPage() {
   const session = await auth();
 
   if (session) {
-    return redirect(DASHBOARD_URL);
+    return redirect(CONSOLE_URL);
   }
 
   return (
