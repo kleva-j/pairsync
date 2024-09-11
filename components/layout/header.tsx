@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 
-import { DASHBOARD_URL, SIGNIN_URL } from "@/lib/contant";
+import { SIGNIN_URL, SIGNOUT_URL } from "@/lib/contant";
 
 type HeaderProps = {
   signedInUser?: User;
@@ -29,7 +29,7 @@ export async function Header({ signedInUser }: HeaderProps) {
         </nav>
         <div className="flex items-center gap-x-4">
           <Button asChild variant="secondary">
-            <Link href={!signedInUser ? SIGNIN_URL : DASHBOARD_URL}>{!signedInUser ? "Sign in" : "Dashboard"}</Link>
+            <Link href={!signedInUser ? SIGNIN_URL : SIGNOUT_URL}>{!signedInUser ? "Sign in" : "Sign out"}</Link>
           </Button>
           <ModeToggle />
         </div>
