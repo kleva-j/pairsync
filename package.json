@@ -29,6 +29,7 @@
   "dependencies": {
     "@auth/core": "^0.34.2",
     "@auth/drizzle-adapter": "^1.4.2",
+    "@hookform/resolvers": "^3.9.0",
     "@next/bundle-analyzer": "^14.2.3",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-checkbox": "^1.0.4",
@@ -68,6 +69,7 @@
     "postgres": "^3.4.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
     "semantic-release-pnpm": "^1.0.2",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
