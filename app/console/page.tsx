@@ -1,13 +1,22 @@
-import { auth } from "auth";
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+
+import Header from "@/console/header";
+
+import { CREATE_ROOM_URL } from "@/lib/contant";
 
 export default async function ConsolePage() {
-  const session = await auth();
-
-  const [firstName] = String(session?.user?.name).split(" ");
-
   return (
-    <section className="grid min-h-screen place-items-center">
-      <h2 className="text-2xl">Welcome {firstName}</h2>
+    <section>
+      <Header>
+        <Button variant="link" asChild>
+          <Link href={CREATE_ROOM_URL}>Create Room</Link>
+        </Button>
+      </Header>
+      <section className="grid place-items-center">
+        <h2 className="text-2xl">Welcome to the console page</h2>
+      </section>
     </section>
   );
 }
