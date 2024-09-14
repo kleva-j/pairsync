@@ -21,9 +21,10 @@ export default async function HomePage() {
               PairSync - A pair programming tool for developers
             </h1>
             <p className="mb-6 max-w-2xl font-light text-neutral-500 dark:text-neutral-400 md:text-lg lg:mb-8 lg:text-xl">
-              Jumpstart your enterprise project with our feature-packed, high-performance Next.js boilerplate!
-              Experience rapid UI development, AI-powered code reviews, and an extensive suite of tools for a smooth and
-              enjoyable development process.
+              Jumpstart your enterprise project with our feature-packed, high-performance
+              Next.js boilerplate! Experience rapid UI development, AI-powered code
+              reviews, and an extensive suite of tools for a smooth and enjoyable
+              development process.
             </p>
             <Button className="mr-3">Get started</Button>
             <Button variant="secondary">Deploy Now</Button>
@@ -35,12 +36,19 @@ export default async function HomePage() {
         <div className="mx-auto max-w-screen-xl px-4 py-8 sm:py-16 lg:px-6">
           <div className="justify-center space-y-8 md:grid md:grid-cols-2 md:gap-12 md:space-y-0 lg:grid-cols-3">
             {LP_GRID_ITEMS.map((singleItem) => (
-              <div key={singleItem.title} className="flex flex-col items-center justify-center text-center">
+              <div
+                key={singleItem.title}
+                className="flex flex-col items-center justify-center text-center"
+              >
                 <div className="bg-primary-100 dark:bg-primary-900 mb-4 flex size-10 items-center justify-center rounded-full p-1.5 text-blue-700 lg:size-12">
                   {singleItem.icon}
                 </div>
-                <h3 className="mb-2 text-xl font-bold dark:text-white">{singleItem.title}</h3>
-                <p className="text-neutral-500 dark:text-neutral-400">{singleItem.description}</p>
+                <h3 className="mb-2 text-xl font-bold dark:text-white">
+                  {singleItem.title}
+                </h3>
+                <p className="text-neutral-500 dark:text-neutral-400">
+                  {singleItem.description}
+                </p>
               </div>
             ))}
           </div>

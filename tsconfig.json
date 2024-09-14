@@ -24,7 +24,9 @@
       "@/lib/*": ["./lib/*"],
       "@/hooks/*": ["./hooks/*"],
       "@/styles/*": ["./styles/*"],
-      "@/db/*": ["./db/*"]
+      "@/db/*": ["./db/*"],
+      "@/types/*": ["./types/*"],
+      "@/helpers/*": ["./helpers/*"]
     },
     "types": ["node", "jest", "@testing-library/jest-dom"],
     "plugins": [{ "name": "next" }]

@@ -10,5 +10,8 @@ export default auth(async function middleware(_req: NextRequest) {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)", "/console"],
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/console",
+  ],
 };
