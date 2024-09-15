@@ -8,7 +8,7 @@ import Header from "@/console/header";
 
 import { ALL_ROOMS_URL, CREATE_ROOM_URL } from "@/lib/contant";
 
-export const routes = [
+const navLinks = [
   { name: "Available Rooms", href: ALL_ROOMS_URL },
   { name: "Create Room", href: CREATE_ROOM_URL },
 ];
@@ -16,14 +16,13 @@ export const routes = [
 export default function RoomLayout({ children }: PropsWithChildren) {
   return (
     <section>
-      <Header className="shadow">
+      <Header className="shadow dark:border-b">
         <div className="space-x-4">
-          <Button variant="link" className="px-1" asChild>
-            <Link href={ALL_ROOMS_URL}>Available Rooms</Link>
-          </Button>
-          <Button variant="link" className="px-1" asChild>
-            <Link href={CREATE_ROOM_URL}>Create Room</Link>
-          </Button>
+          {navLinks.map((link) => (
+            <Button variant="link" className="px-1" asChild key={link.name}>
+              <Link href={link.href}>{link.name}</Link>
+            </Button>
+          ))}
         </div>
       </Header>
       <section className="p-4">{children}</section>
