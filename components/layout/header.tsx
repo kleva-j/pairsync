@@ -29,7 +29,9 @@ export async function Header({ signedInUser }: HeaderProps) {
         </nav>
         <div className="flex items-center gap-x-4">
           <Button asChild variant="secondary">
-            <Link href={!signedInUser ? SIGNIN_URL : SIGNOUT_URL}>{!signedInUser ? "Sign in" : "Sign out"}</Link>
+            <Link href={!signedInUser ? SIGNIN_URL : SIGNOUT_URL}>
+              {!signedInUser ? "Sign in" : "Sign out"}
+            </Link>
           </Button>
           <ModeToggle />
         </div>

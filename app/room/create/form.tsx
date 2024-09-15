@@ -1,0 +1,128 @@
+"use client";
+
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
+
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+
+import { Input } from "@/components/ui/input";
+import { MultipleSelector } from "@/components/ui/multi-select";
+import { Textarea } from "@/components/ui/textarea";
+
+import {
+  type CreateRoomFormSchema,
+  defaultFormValues as defaultValues,
+  createRoomFormResolver as resolver,
+  tags,
+} from "@/lib/contant";
+
+export const CreateRoomForm = () => {
+  const form = useForm({ resolver, defaultValues });
+
+  function onSubmit(data: CreateRoomFormSchema) {
+    console.log(data);
+    // TODO: invoke a server action to store the data in the database and redirect to the room page.
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <FormField
+          name="name"
+          control={form.control}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Name</FormLabel>
+              <FormControl>
+                <Input placeholder="Add a room name" {...field} />
+              </FormControl>
+              <FormDescription>This is the public room name.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          name="description"
+          control={form.control}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Add a description here..." {...field} />
+              </FormControl>
+              <FormDescription>
+                Describe what you want to Do / Build / Learn.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          name="language"
+          control={form.control}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Primary Programming Language</FormLabel>
+              <FormControl>
+                <Input placeholder="Language of choice" {...field} />
+              </FormControl>
+              <FormDescription>
+                Set the programming language of choice to use in your project.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="tags"
+          render={({ field }) => (
+            <FormItem className="flex flex-col items-start">
+              <FormLabel className="text-left">Tags</FormLabel>
+              <FormControl>
+                <MultipleSelector
+                  {...field}
+                  defaultOptions={tags}
+                  creatable
+                  placeholder="Select / Create tags you like..."
+                  emptyIndicator={
+                    <p className="text-center text-lg leading-10 text-gray-600 dark:text-gray-400">
+                      no results found.
+                    </p>
+                  }
+                />
+              </FormControl>
+              <FormDescription>
+                These are the tags that you&apos;re interested in.
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          name="githubRepo"
+          control={form.control}
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Github Repo</FormLabel>
+              <FormControl>
+                <Input placeholder="Add a Github repo" {...field} />
+              </FormControl>
+              <FormDescription>Set the Github repo of your project.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Button type="submit">Submit</Button>
+      </form>
+    </Form>
+  );
+};
