@@ -16,5 +16,4 @@ export default {
     signIn: "/auth/signin",
     error: "/auth/error",
   },
-  session: { strategy: "database" },
 } satisfies NextAuthConfig;
