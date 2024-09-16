@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import { isOptionsExist, removePickedOption } from "@/helpers/index";
+import { isOptionsExist, removePickedOption, transToGroupOption } from "@/helpers/index";
 import { useDebounce } from "@/hooks/use-debounce";
 import { cn } from "@/lib/utils";
 
@@ -86,27 +86,6 @@ export interface MultipleSelectorRef {
   input: HTMLInputElement;
   focus: () => void;
   reset: () => void;
-}
-
-function transToGroupOption(options: SelectOption[], groupBy?: string) {
-  if (options.length === 0) {
-    return {};
-  }
-  if (!groupBy) {
-    return {
-      "": options,
-    };
-  }
-
-  const groupOption: GroupSelectOption = {};
-  options.forEach((option) => {
-    const key = (option[groupBy] as string) || "";
-    if (!groupOption[key]) {
-      groupOption[key] = [];
-    }
-    groupOption[key].push(option);
-  });
-  return groupOption;
 }
 
 /**

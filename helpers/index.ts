@@ -1,17 +1,17 @@
 import type { GroupSelectOption, SelectOption } from "@/types/index";
 
 export function transToGroupOption(options: SelectOption[], groupBy?: string) {
-  if (options.length === 0) return {};
+  if (!Array.isArray(options) || options.length === 0) return {};
 
   if (!groupBy) return { "": options };
 
   const groupOption: GroupSelectOption = {};
+
   options.forEach((option) => {
-    const key = (option[groupBy] as string) || "";
-    if (!groupOption[key]) {
-      groupOption[key] = [];
-    }
-    groupOption[key].push(option);
+    const key = option[groupBy] ? (option[groupBy] as string) : "";
+    const group = groupOption[key] || [];
+    group.push(option);
+    groupOption[key] = group;
   });
   return groupOption;
 }
