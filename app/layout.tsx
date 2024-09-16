@@ -3,6 +3,7 @@ import { ViewTransitions } from "next-view-transitions";
 
 import type { PropsWithChildren } from "react";
 
+import { ErrorBoundary } from "@/components/providers/error-boundary";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { fontMono, fontSans } from "@/lib/font";
 import { cn } from "@/lib/utils";
@@ -21,16 +22,18 @@ export default function RootLayout({ children }: PropsWithChildren) {
             fontMono.variable
           )}
         >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
-              {children}
-            </ClerkProvider>
-          </ThemeProvider>
+          <ErrorBoundary>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+                {children}
+              </ClerkProvider>
+            </ThemeProvider>
+          </ErrorBoundary>
         </body>
       </html>
     </ViewTransitions>
