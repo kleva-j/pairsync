@@ -1,19 +1,15 @@
 import { BackgroundGrid } from "@/components/grid-bg";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
-import { auth } from "auth";
 
 import { LP_GRID_ITEMS } from "lp-items";
 
 export { metadata } from "@/_metadata";
 
 export default async function HomePage() {
-  const session = await auth();
-  const user = session?.user;
-
   return (
     <>
-      <Header signedInUser={user} />
+      <Header />
       <section className="relative h-[calc(100vh_-_theme(spacing.20))] w-screen overflow-hidden">
         <div className="mx-auto grid max-w-screen-xl px-4 py-8 text-center lg:py-20">
           <div className="mx-auto place-self-center">

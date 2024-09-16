@@ -1,8 +1,11 @@
-import { type PropsWithChildren } from "react";
+import { ClerkProvider } from "@clerk/nextjs";
 
-import { ThemeProvider } from "@/components/theme-provider";
+import type { PropsWithChildren } from "react";
+
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { fontMono, fontSans } from "@/lib/font";
 import { cn } from "@/lib/utils";
+import { env } from "env.mjs";
 
 import "styles/tailwind.css";
 
@@ -22,7 +25,9 @@ export default function RootLayout({ children }: PropsWithChildren) {
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
+            {children}
+          </ClerkProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -4,14 +4,14 @@ import { Button } from "@/components/ui/button";
 
 import Header from "@/console/header";
 
-import { CREATE_ROOM_URL } from "@/lib/contant";
+import { ALL_ROOMS_URL } from "@/lib/contant";
 
 export default async function ConsolePage() {
   return (
     <section>
       <Header>
         <Button variant="link" asChild>
-          <Link href={CREATE_ROOM_URL}>Create Room</Link>
+          <Link href={ALL_ROOMS_URL}>Rooms</Link>
         </Button>
       </Header>
       <section className="grid place-items-center">

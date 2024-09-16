@@ -1,17 +1,13 @@
-import type { User } from "@auth/core/types";
+import { SignedIn, SignedOut } from "@clerk/nextjs";
 
 import Link from "next/link";
 
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 
-import { SIGNIN_URL, SIGNOUT_URL } from "@/lib/contant";
+import { CONSOLE_URL, SIGNIN_URL } from "@/lib/contant";
 
-type HeaderProps = {
-  signedInUser?: User;
-};
-
-export async function Header({ signedInUser }: HeaderProps) {
+export async function Header() {
   return (
     <header className="bg-white shadow dark:bg-black">
       <div className="mx-auto flex max-w-screen-xl items-center justify-between p-4">
@@ -28,11 +24,16 @@ export async function Header({ signedInUser }: HeaderProps) {
           </Button>
         </nav>
         <div className="flex items-center gap-x-4">
-          <Button asChild variant="secondary">
-            <Link href={!signedInUser ? SIGNIN_URL : SIGNOUT_URL}>
-              {!signedInUser ? "Sign in" : "Sign out"}
-            </Link>
-          </Button>
+          <SignedIn>
+            <Button asChild variant="secondary">
+              <Link href={CONSOLE_URL}>Console</Link>
+            </Button>
+          </SignedIn>
+          <SignedOut>
+            <Button asChild variant="secondary">
+              <Link href={SIGNIN_URL}>Sign in</Link>
+            </Button>
+          </SignedOut>
           <ModeToggle />
         </div>
       </div>
