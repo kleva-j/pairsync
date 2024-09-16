@@ -9,7 +9,7 @@ export { metadata } from "@/_metadata";
 export default async function HomePage() {
   return (
     <>
-      <Header signedInUser={{}} />
+      <Header />
       <section className="relative h-[calc(100vh_-_theme(spacing.20))] w-screen overflow-hidden">
         <div className="mx-auto grid max-w-screen-xl px-4 py-8 text-center lg:py-20">
           <div className="mx-auto place-self-center">

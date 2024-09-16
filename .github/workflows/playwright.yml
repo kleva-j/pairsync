@@ -11,6 +11,8 @@ jobs:
   test:
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
