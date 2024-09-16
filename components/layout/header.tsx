@@ -1,7 +1,7 @@
 import { SignedIn, SignedOut } from "@clerk/nextjs";
+import NextLink from "next/link";
 
-import Link from "next/link";
-
+import { Link } from "next-view-transitions";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 
@@ -14,13 +14,13 @@ export async function Header() {
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white">PairSync</h1>
         <nav className="flex gap-x-4">
           <Button asChild variant="link">
-            <Link href="/">Home</Link>
+            <NextLink href="/">Home</NextLink>
           </Button>
           <Button asChild variant="link">
-            <Link href="#features">Features</Link>
+            <NextLink href="#features">Features</NextLink>
           </Button>
           <Button asChild variant="link">
-            <Link href="#contact">Contact</Link>
+            <NextLink href="#contact">Contact</NextLink>
           </Button>
         </nav>
         <div className="flex items-center gap-x-4">
