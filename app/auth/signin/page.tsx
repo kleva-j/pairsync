@@ -8,7 +8,14 @@ import { GoogleIcon } from "@/components/icons/google";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 import { CONSOLE_URL, HOME_URL, SIGNIN_ERROR_URL } from "@/lib/contant";
 import { auth, signIn } from "auth";
@@ -43,7 +50,8 @@ export default async function SignInPage() {
             <div className="flex flex-col gap-2 sm:mx-auto sm:w-full sm:max-w-sm">
               {providers.map((provider: { id: string; name: keyof typeof iconMap }) => {
                 const Icon =
-                  iconMap[provider.id] || ((props) => <span className={props.className}>Icon not found</span>);
+                  iconMap[provider.id] ||
+                  ((props) => <span className={props.className}>Icon not found</span>);
                 return (
                   <form
                     key={provider.id}

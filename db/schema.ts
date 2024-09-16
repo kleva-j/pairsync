@@ -1,4 +1,11 @@
-import { boolean, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  integer,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
 import type { AdapterAccountType } from "next-auth/adapters";
 
@@ -78,3 +85,15 @@ export const authenticators = pgTable(
     }),
   })
 );
+
+export const room = pgTable("room", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  ownerId: text("ownerId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  language: text("language").notNull(),
+  githubRepo: text("githubRepo"),
+  createdAt: timestamp("createdAt", { mode: "date" }).notNull(),
+  tags: text("tags").array(), // Added tags field to rooms table
+});

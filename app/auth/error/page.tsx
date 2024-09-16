@@ -11,8 +11,11 @@ enum Error {
 const errorMap = {
   [Error.Configuration]: (
     <p>
-      There was a problem when trying to authenticate. Please contact us if this error persists. Unique error code:{" "}
-      <code className="rounded-sm bg-slate-100 p-1 text-xs dark:bg-slate-700">Configuration</code>
+      There was a problem when trying to authenticate. Please contact us if this error
+      persists. Unique error code:{" "}
+      <code className="rounded-sm bg-slate-100 p-1 text-xs dark:bg-slate-700">
+        Configuration
+      </code>
     </p>
   ),
 };

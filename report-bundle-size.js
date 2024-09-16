@@ -44,7 +44,9 @@ const globalBundleSizes = getScriptSizes(globalBundle);
 // subtracting out the global scripts
 const allPageSizes = Object.values(buildMeta.pages).reduce((acc, scriptPaths, i) => {
   const pagePath = Object.keys(buildMeta.pages)[i];
-  const scriptSizes = getScriptSizes(scriptPaths.filter((scriptPath) => !globalBundle.includes(scriptPath)));
+  const scriptSizes = getScriptSizes(
+    scriptPaths.filter((scriptPath) => !globalBundle.includes(scriptPath))
+  );
 
   acc[pagePath] = scriptSizes;
 
@@ -56,7 +58,9 @@ const globalAppDirBundleSizes = getScriptSizes(globalAppDirBundle);
 
 const allAppDirSizes = Object.values(appDirMeta.pages).reduce((acc, scriptPaths, i) => {
   const pagePath = Object.keys(appDirMeta.pages)[i];
-  const scriptSizes = getScriptSizes(scriptPaths.filter((scriptPath) => !globalAppDirBundle.includes(scriptPath)));
+  const scriptSizes = getScriptSizes(
+    scriptPaths.filter((scriptPath) => !globalAppDirBundle.includes(scriptPath))
+  );
   acc[pagePath] = scriptSizes;
 
   return acc;

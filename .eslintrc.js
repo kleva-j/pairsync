@@ -2,7 +2,13 @@
 const fs = require("fs");
 
 module.exports = {
-  extends: ["next", "prettier", "react-app", "react-app/jest", "plugin:tailwindcss/recommended"],
+  extends: [
+    "next",
+    "prettier",
+    "react-app",
+    "react-app/jest",
+    "plugin:tailwindcss/recommended",
+  ],
   parserOptions: {
     babelOptions: {
       presets: [require.resolve("next/babel")],
@@ -62,7 +68,9 @@ module.exports = {
 
 function getDirectoriesToSort() {
   const ignoredSortingDirectories = [".git", ".next", ".vscode", "node_modules"];
-  return getDirectories(process.cwd()).filter((f) => !ignoredSortingDirectories.includes(f));
+  return getDirectories(process.cwd()).filter(
+    (f) => !ignoredSortingDirectories.includes(f)
+  );
 }
 
 function getDirectories(path) {

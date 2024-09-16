@@ -16,7 +16,12 @@ export default function RootLayout({ children }: PropsWithChildren) {
           fontMono.variable
         )}
       >
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
           {children}
         </ThemeProvider>
       </body>
