@@ -8,11 +8,16 @@ export const env = createEnv({
       .optional()
       .transform((value) => value === "true"),
     DATABASE_URL: z.string().min(10),
+    CLERK_SECRET_KEY: z.string().min(1).max(50),
   },
-  client: {},
+  client: {
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).max(60),
+  },
   runtimeEnv: {
     ANALYZE: process.env.ANALYZE,
     DATABASE_URL: process.env.DATABASE_URL,
+    CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY,
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
