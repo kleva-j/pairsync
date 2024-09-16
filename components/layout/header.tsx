@@ -1,5 +1,3 @@
-import type { User } from "@auth/core/types";
-
 import Link from "next/link";
 
 import { ModeToggle } from "@/components/mode-toggle";
@@ -8,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { SIGNIN_URL, SIGNOUT_URL } from "@/lib/contant";
 
 type HeaderProps = {
-  signedInUser?: User;
+  signedInUser?: {};
 };
 
 export async function Header({ signedInUser }: HeaderProps) {

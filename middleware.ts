@@ -1,17 +1,12 @@
-import type { NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-import NextAuth from "next-auth";
-import authConfig from "auth.config";
-
-const { auth } = NextAuth(authConfig);
-
-export default auth(async function middleware(_req: NextRequest) {
-  // Your custom middleware logic goes here
-});
+export default clerkMiddleware();
 
 export const config = {
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
-    "/console",
+    // Skip Next.js internals and all static files, unless found in search params
+    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
+    // Always run for API routes
+    "/(api|trpc)(.*)",
   ],
 };
