@@ -1,11 +1,9 @@
-"use client";
-
+import { UserButton } from "@clerk/nextjs";
 import { Command } from "lucide-react";
 
 import type { PropsWithChildren } from "react";
 
 import { ModeToggle } from "@/components/mode-toggle";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type HeaderProps = PropsWithChildren & { className?: string };
@@ -24,12 +22,15 @@ const Header = ({ children, className }: HeaderProps) => {
           {children}
 
           <div className="flex items-center gap-x-2">
-            <Button
-              variant="outline"
-              className="border-[1.5px] text-black dark:text-white"
-            >
-              Sign Out
-            </Button>
+            <UserButton
+              showName
+              appearance={{
+                elements: {
+                  userButtonTrigger:
+                    "border border-zinc-300 dark:border-zinc-700 p-0.5 text-sm dark:text-white",
+                },
+              }}
+            />
             <ModeToggle />
           </div>
         </nav>
