@@ -16,6 +16,9 @@ jobs:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
       CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+      CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
+      NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+      CLERK_ISSUER_URL: ${{ secrets.CLERK_ISSUER_URL }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
