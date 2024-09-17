@@ -1,2 +1,14 @@
 .next
 node_modules
+convex/_generated
+.husky
+.github
+.vscode
+coverage
+dist
+build
+out
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+drizzle
