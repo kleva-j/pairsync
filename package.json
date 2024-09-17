@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "cross-env FORCE_COLOR=1 next dev",
     "dev:compose": "docker compose up",
+    "convex:dev": "convex dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -27,6 +28,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.9.0",
     "@clerk/nextjs": "^5.5.2",
     "@hookform/resolvers": "^3.9.0",
     "@next/bundle-analyzer": "^14.2.11",
@@ -57,6 +59,8 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cmdk": "1.0.0",
+    "convex": "^1.16.0",
+    "convex-helpers": "^0.1.58",
     "csp-header": "^5.2.1",
     "drizzle-orm": "^0.33.0",
     "framer-motion": "^11.5.4",
@@ -72,6 +76,7 @@
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.53.0",
     "semantic-release-pnpm": "^1.0.2",
+    "svix": "^1.34.0",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.23.8"

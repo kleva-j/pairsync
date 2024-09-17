@@ -3,8 +3,11 @@ import { ViewTransitions } from "next-view-transitions";
 
 import type { PropsWithChildren } from "react";
 
+// Providers
+import { ConvexClientProvider } from "@/components/providers/convex";
 import { ErrorBoundary } from "@/components/providers/error-boundary";
 import { ThemeProvider } from "@/components/providers/theme-provider";
+
 import { fontMono, fontSans } from "@/lib/font";
 import { cn } from "@/lib/utils";
 import { env } from "env.mjs";
@@ -30,7 +33,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
               disableTransitionOnChange
             >
               <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
-                {children}
+                <ConvexClientProvider>{children}</ConvexClientProvider>
               </ClerkProvider>
             </ThemeProvider>
           </ErrorBoundary>
