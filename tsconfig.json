@@ -26,7 +26,8 @@
       "@/styles/*": ["./styles/*"],
       "@/db/*": ["./db/*"],
       "@/types/*": ["./types/*"],
-      "@/helpers/*": ["./helpers/*"]
+      "@/helpers/*": ["./helpers/*"],
+      "@/convex/*": ["./convex/*"]
     },
     "types": ["node", "jest", "@testing-library/jest-dom"],
     "plugins": [{ "name": "next" }]

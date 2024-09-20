@@ -1,6 +1,10 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -16,20 +20,32 @@ import {
 import { Input } from "@/components/ui/input";
 import { MultipleSelector } from "@/components/ui/multi-select";
 import { Textarea } from "@/components/ui/textarea";
-
 import {
+  ALL_ROOMS_URL,
   type CreateRoomFormSchema,
   defaultFormValues as defaultValues,
   createRoomFormResolver as resolver,
   tags,
 } from "@/lib/contant";
 
+import { createRoomAction } from "@/room/create/actions";
+
 export const CreateRoomForm = () => {
   const form = useForm({ resolver, defaultValues });
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
-  function onSubmit(data: CreateRoomFormSchema) {
-    console.log(data);
-    // TODO: invoke a server action to store the data in the database and redirect to the room page.
+  async function onSubmit(data: CreateRoomFormSchema) {
+    setLoading(true);
+    try {
+      await createRoomAction(data);
+      toast.success("Room created successfully!");
+      setLoading(false);
+      router.push(ALL_ROOMS_URL);
+    } catch (error) {
+      setLoading(false);
+      toast.error("Error creating room!");
+    }
   }
 
   return (
@@ -38,6 +54,7 @@ export const CreateRoomForm = () => {
         <FormField
           name="name"
           control={form.control}
+          disabled={loading}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Name</FormLabel>
@@ -52,6 +69,7 @@ export const CreateRoomForm = () => {
         <FormField
           name="description"
           control={form.control}
+          disabled={loading}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Description</FormLabel>
@@ -68,6 +86,7 @@ export const CreateRoomForm = () => {
         <FormField
           name="language"
           control={form.control}
+          disabled={loading}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Primary Programming Language</FormLabel>
@@ -82,8 +101,9 @@ export const CreateRoomForm = () => {
           )}
         />
         <FormField
-          control={form.control}
           name="tags"
+          control={form.control}
+          disabled={loading}
           render={({ field }) => (
             <FormItem className="flex flex-col items-start">
               <FormLabel className="text-left">Tags</FormLabel>
@@ -91,6 +111,7 @@ export const CreateRoomForm = () => {
                 <MultipleSelector
                   {...field}
                   defaultOptions={tags}
+                  disabled={loading}
                   creatable
                   placeholder="Select / Create tags you like..."
                   emptyIndicator={
@@ -110,6 +131,7 @@ export const CreateRoomForm = () => {
         <FormField
           name="githubRepo"
           control={form.control}
+          disabled={loading}
           render={({ field }) => (
             <FormItem>
               <FormLabel>Github Repo</FormLabel>
@@ -121,7 +143,15 @@ export const CreateRoomForm = () => {
             </FormItem>
           )}
         />
-        <Button type="submit">Submit</Button>
+        <Button type="submit" disabled={loading}>
+          {!loading && "Submit"}
+          {loading && (
+            <>
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Please wait
+            </>
+          )}
+        </Button>
       </form>
     </Form>
   );

@@ -1,4 +1,5 @@
 import { PlusIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogClose,
@@ -10,8 +11,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/motion-dialog";
+import type { RoomSchema } from "@/lib/contant";
 
-export function RoomCard() {
+type RoomCardProps = { room: RoomSchema };
+
+export function RoomCard({ room }: RoomCardProps) {
+  const { name, description, tags } = room;
+
   return (
     <Dialog transition={{ type: "spring", bounce: 0.05, duration: 0.25 }}>
       <DialogTrigger
@@ -29,7 +35,7 @@ export function RoomCard() {
           <div>
             <DialogTitle className="text-zinc-950 dark:text-zinc-50">EB27</DialogTitle>
             <DialogSubtitle className="text-zinc-700 dark:text-zinc-400">
-              Edouard Wilfrid Buquet
+              {name}
             </DialogSubtitle>
           </div>
           <button
@@ -58,7 +64,7 @@ export function RoomCard() {
               EB27
             </DialogTitle>
             <DialogSubtitle className="text-zinc-700 dark:text-zinc-400">
-              Edouard Wilfrid Buquet
+              {name}
             </DialogSubtitle>
             <DialogDescription
               disableLayoutAnimation
@@ -67,25 +73,20 @@ export function RoomCard() {
                 animate: { opacity: 1, scale: 1, y: 0 },
                 exit: { opacity: 0, scale: 0.8, y: 100 },
               }}
+              className="mt-2 flex flex-col gap-y-3"
             >
-              <p className="mt-2 text-zinc-500 dark:text-zinc-500">
-                Little is known about the life of Édouard-Wilfrid Buquet. He was born in
-                France in 1866, but the time and place of his death is unfortunately a
-                mystery.
-              </p>
-              <p className="text-zinc-500">
-                Research conducted in the 1970s revealed that he’d designed the “EB 27”
-                double-arm desk lamp in 1925, handcrafting it from nickel-plated brass,
-                aluminium and varnished wood.
-              </p>
-              <a
-                className="mt-2 inline-flex text-zinc-500 underline"
-                href="https://www.are.na/block/12759029"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Are.na block
-              </a>
+              <p className="text-zinc-500">{description}</p>
+              <div className="flex items-center gap-x-1.5 text-zinc-500">
+                {tags.map(({ label, value }) => (
+                  <Badge
+                    key={label}
+                    variant="secondary"
+                    className="h-6 rounded-full capitalize"
+                  >
+                    {value}
+                  </Badge>
+                ))}
+              </div>
             </DialogDescription>
           </div>
           <DialogClose className="text-zinc-50" />
