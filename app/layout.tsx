@@ -3,6 +3,8 @@ import { ViewTransitions } from "next-view-transitions";
 
 import type { PropsWithChildren } from "react";
 
+import { Toaster } from "sonner";
+
 // Providers
 import { ConvexClientProvider } from "@/components/providers/convex";
 import { ErrorBoundary } from "@/components/providers/error-boundary";
@@ -35,6 +37,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
               <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
                 <ConvexClientProvider>{children}</ConvexClientProvider>
               </ClerkProvider>
+              <Toaster />
             </ThemeProvider>
           </ErrorBoundary>
         </body>
