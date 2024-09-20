@@ -16,6 +16,7 @@ jobs:
       CONVEX_DEPLOYMENT: ${{ secrets.CONVEX_DEPLOYMENT }}
       NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
       CLERK_ISSUER_URL: ${{ secrets.CLERK_ISSUER_URL }}
+      CLERK_WEBHOOK_SECRET: ${{ secrets.CLERK_WEBHOOK_SECRET }}
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:

@@ -11,6 +11,7 @@ export const env = createEnv({
     CLERK_SECRET_KEY: z.string().min(1).max(50),
     CONVEX_DEPLOYMENT: z.string().min(10),
     CLERK_ISSUER_URL: z.string().url("Must be a valid URL"),
+    CLERK_WEBHOOK_SECRET: z.string().min(1).max(50),
   },
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).max(60),
@@ -24,6 +25,7 @@ export const env = createEnv({
     CONVEX_DEPLOYMENT: process.env.CONVEX_DEPLOYMENT,
     NEXT_PUBLIC_CONVEX_URL: process.env.NEXT_PUBLIC_CONVEX_URL,
     CLERK_ISSUER_URL: process.env.CLERK_ISSUER_URL,
+    CLERK_WEBHOOK_SECRET: process.env.CLERK_WEBHOOK_SECRET,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
