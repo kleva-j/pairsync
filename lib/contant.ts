@@ -12,19 +12,24 @@ export const CONSOLE_URL = "/console";
 export const HOME_URL = "/";
 
 // Room constants
-export const roomSchema = z.object({
-  name: z.string().min(1).max(50),
-  description: z.string().min(1).max(100),
-  language: z.string().min(1).max(100),
+export const createRoomSchema = z.object({
+  name: z
+    .string()
+    .min(3, "Name should be at least 3 characters")
+    .max(50, "Name should be at most 50 characters"),
+  description: z
+    .string()
+    .min(10, "Description should be at least 10 characters long")
+    .max(250, "Description should be at most 250 characters long")
+    .optional()
+    .or(z.literal("")),
+  language: z.string().min(1, "Must be a valid language").max(100),
   githubRepo: z.optional(z.string().url("Must be a valid URL")),
   tags: z.array(z.object({ value: z.string(), label: z.string() })),
 });
 
-export const createRoomSchema = roomSchema.extend({
-  ownerId: z.string().min(1).max(100),
-});
-
 export type CreateRoomFormSchema = z.infer<typeof createRoomSchema>;
+export type RoomSchema = CreateRoomFormSchema;
 
 export const createRoomFormResolver = zodResolver(createRoomSchema);
 
@@ -65,7 +70,6 @@ export const defaultFormValues: CreateRoomFormSchema = {
   name: "",
   description: "",
   language: "",
-  githubRepo: "",
-  ownerId: "",
+  githubRepo: undefined,
   tags: [],
 };
