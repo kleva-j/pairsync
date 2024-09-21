@@ -1,4 +1,5 @@
 import { ClerkProvider } from "@clerk/nextjs";
+import { AxiomWebVitals } from "next-axiom";
 import { ViewTransitions } from "next-view-transitions";
 
 import type { PropsWithChildren } from "react";
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
             fontMono.variable
           )}
         >
+          <AxiomWebVitals />
           <ErrorBoundary>
             <ThemeProvider
               attribute="class"
