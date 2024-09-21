@@ -1,4 +1,7 @@
 import withBundleAnalyzer from "@next/bundle-analyzer";
+
+import { withAxiom } from "next-axiom";
+
 import withPlugins from "next-compose-plugins";
 
 import { env } from "./env.mjs";
@@ -7,7 +10,7 @@ import { securityHeaders } from "./lib/csp.mjs";
 /**
  * @type {import('next').NextConfig}
  */
-const config = withPlugins([[withBundleAnalyzer({ enabled: env.ANALYZE })]], {
+const config = withPlugins([[withBundleAnalyzer({ enabled: env.ANALYZE })], withAxiom], {
   reactStrictMode: true,
   logging: {
     fetches: {
