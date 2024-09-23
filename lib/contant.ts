@@ -8,6 +8,7 @@ export const CREATE_ROOM_URL = "/room/create";
 export const SIGNIN_URL = "/auth/sign-in";
 export const SIGNUP_URL = "/auth/sign-up";
 export const ALL_ROOMS_URL = "/room";
+export const ROOM_ID_URL = "/room/id";
 export const CONSOLE_URL = "/console";
 export const HOME_URL = "/";
 

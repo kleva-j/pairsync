@@ -15,7 +15,7 @@ export const RoomList = ({ query }: RoomListProps) => {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
       {Array.isArray(rooms)
-        ? rooms.map((room) => <RoomCard key={room._id} room={room} />)
+        ? rooms.map((room) => <RoomCard key={room._id} roomId={room._id} room={room} />)
         : null}
     </div>
   );
