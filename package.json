@@ -72,6 +72,7 @@
     "next-compose-plugins": "^2.2.1",
     "next-themes": "^0.3.0",
     "next-view-transitions": "^0.3.1",
+    "nextjs-toploader": "^3.6.15",
     "posthog-js": "^1.163.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { AxiomWebVitals } from "next-axiom";
 import { ViewTransitions } from "next-view-transitions";
 
+import NextTopLoader from "nextjs-toploader";
+
 import type { PropsWithChildren } from "react";
 
 import { Toaster } from "sonner";
@@ -46,6 +48,7 @@ export default function RootLayout({ children }: PropsWithChildren) {
                 enableSystem
                 disableTransitionOnChange
               >
+                <NextTopLoader />
                 <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}>
                   <ConvexClientProvider>{children}</ConvexClientProvider>
                 </ClerkProvider>
