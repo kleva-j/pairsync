@@ -18,6 +18,8 @@ export const env = createEnv({
   client: {
     NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string().min(1).max(60),
     NEXT_PUBLIC_CONVEX_URL: z.string().min(10),
+    NEXT_PUBLIC_POSTHOG_KEY: z.string().min(1).max(70),
+    NEXT_PUBLIC_POSTHOG_HOST: z.string().url("Must be a valid URL"),
   },
   runtimeEnv: {
     ANALYZE: process.env.ANALYZE,
@@ -30,6 +32,8 @@ export const env = createEnv({
     CLERK_WEBHOOK_SECRET: process.env.CLERK_WEBHOOK_SECRET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
+    NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
+    NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially
