@@ -3,7 +3,7 @@ import { Github, PlusIcon } from "lucide-react";
 import NextLink from "next/link";
 
 import { Link } from "next-view-transitions";
-import { Badge } from "@/components/ui/badge";
+import { TagList } from "@/components/tag-lists";
 import { Button } from "@/components/ui/button";
 
 import {
@@ -28,9 +28,7 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
   return (
     <Dialog transition={{ type: "spring", bounce: 0.05, duration: 0.25 }}>
       <DialogTrigger
-        style={{
-          borderRadius: "12px",
-        }}
+        style={{ borderRadius: "12px" }}
         className="flex max-w-[270px] flex-col overflow-hidden border border-zinc-950/10 bg-white dark:border-zinc-50/10 dark:bg-zinc-900"
       >
         <DialogImage
@@ -56,7 +54,7 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
       </DialogTrigger>
       <DialogContainer>
         <DialogContent
-          style={{ borderRadius: "24px" }}
+          style={{ borderRadius: "1.5rem" }}
           className="pointer-events-auto relative flex h-auto w-full flex-col overflow-hidden border border-zinc-950/10 bg-white dark:border-zinc-50/10 dark:bg-zinc-900 sm:w-[500px]"
         >
           <DialogImage
@@ -82,17 +80,7 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
             >
               <p className="text-zinc-500">{description}</p>
 
-              <div className="flex items-center gap-x-1.5 text-zinc-500">
-                {tags.map(({ label, value }) => (
-                  <Badge
-                    key={label}
-                    variant="secondary"
-                    className="h-6 rounded-full capitalize"
-                  >
-                    {value}
-                  </Badge>
-                ))}
-              </div>
+              <TagList tags={tags} />
 
               <div className="flex items-center justify-end gap-x-4">
                 {room.githubRepo && (
@@ -111,7 +99,7 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
                   </Button>
                 )}
 
-                <Button className="h-8 font-semibold">
+                <Button className="h-8 font-semibold" variant="secondary">
                   <Link href={`${ROOM_ID_URL}/${roomId}`}>Join</Link>
                 </Button>
               </div>

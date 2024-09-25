@@ -1,4 +1,4 @@
-import { getRoomsQuery } from "@/room/_data-access";
+import { getRoomsQuery } from "@/room/data-access";
 import { RoomList } from "@/room/room-list";
 
 export default async function RoomsPage() {

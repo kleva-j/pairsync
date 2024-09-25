@@ -15,7 +15,7 @@ const navLinks = [
 
 export default function RoomLayout({ children }: PropsWithChildren) {
   return (
-    <section>
+    <section className="min-h-screen">
       <Header className="shadow dark:border-b">
         <div className="space-x-4">
           {navLinks.map((link) => (
@@ -25,7 +25,7 @@ export default function RoomLayout({ children }: PropsWithChildren) {
           ))}
         </div>
       </Header>
-      <section className="p-4">{children}</section>
+      <section className="h-[calc(100vh_-_65px)] p-4">{children}</section>
     </section>
   );
 }
