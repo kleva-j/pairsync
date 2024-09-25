@@ -1,5 +1,11 @@
-import { PlusIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Github, PlusIcon } from "lucide-react";
+
+import NextLink from "next/link";
+
+import { Link } from "next-view-transitions";
+import { TagList } from "@/components/tag-lists";
+import { Button } from "@/components/ui/button";
+
 import {
   Dialog,
   DialogClose,
@@ -11,19 +17,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/motion-dialog";
-import type { RoomSchema } from "@/lib/contant";
 
-type RoomCardProps = { room: RoomSchema };
+import { ROOM_ID_URL, type RoomSchema } from "@/lib/contant";
 
-export function RoomCard({ room }: RoomCardProps) {
+type RoomCardProps = { room: RoomSchema; roomId: string };
+
+export function RoomCard({ room, roomId }: RoomCardProps) {
   const { name, description, tags } = room;
 
   return (
     <Dialog transition={{ type: "spring", bounce: 0.05, duration: 0.25 }}>
       <DialogTrigger
-        style={{
-          borderRadius: "12px",
-        }}
+        style={{ borderRadius: "12px" }}
         className="flex max-w-[270px] flex-col overflow-hidden border border-zinc-950/10 bg-white dark:border-zinc-50/10 dark:bg-zinc-900"
       >
         <DialogImage
@@ -49,9 +54,7 @@ export function RoomCard({ room }: RoomCardProps) {
       </DialogTrigger>
       <DialogContainer>
         <DialogContent
-          style={{
-            borderRadius: "24px",
-          }}
+          style={{ borderRadius: "1.5rem" }}
           className="pointer-events-auto relative flex h-auto w-full flex-col overflow-hidden border border-zinc-950/10 bg-white dark:border-zinc-50/10 dark:bg-zinc-900 sm:w-[500px]"
         >
           <DialogImage
@@ -76,16 +79,29 @@ export function RoomCard({ room }: RoomCardProps) {
               className="mt-2 flex flex-col gap-y-3"
             >
               <p className="text-zinc-500">{description}</p>
-              <div className="flex items-center gap-x-1.5 text-zinc-500">
-                {tags.map(({ label, value }) => (
-                  <Badge
-                    key={label}
-                    variant="secondary"
-                    className="h-6 rounded-full capitalize"
+
+              <TagList tags={tags} />
+
+              <div className="flex items-center justify-end gap-x-4">
+                {room.githubRepo && (
+                  <Button
+                    variant="link"
+                    className="size-7 rounded px-1 text-neutral-500 hover:text-neutral-600 dark:text-neutral-400 dark:hover:text-neutral-300"
+                    asChild
                   >
-                    {value}
-                  </Badge>
-                ))}
+                    <NextLink
+                      href={room.githubRepo || "#"}
+                      rel="noreferrer noopener"
+                      target="_blank"
+                    >
+                      <Github />
+                    </NextLink>
+                  </Button>
+                )}
+
+                <Button className="h-8 font-semibold" variant="secondary">
+                  <Link href={`${ROOM_ID_URL}/${roomId}`}>Join</Link>
+                </Button>
               </div>
             </DialogDescription>
           </div>
