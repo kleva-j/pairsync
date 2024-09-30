@@ -1,3 +1,4 @@
+import { CallParticipantsList } from "@stream-io/video-react-sdk";
 import { Github } from "lucide-react";
 
 import NextLink from "next/link";
@@ -13,12 +14,9 @@ import {
 } from "@/components/ui/card";
 
 import { ResizablePanel } from "@/components/ui/resizable";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoomSchema } from "@/lib/contant";
 
-type RightPanelProps = RoomSchema & {};
-
-export const RightPanel = ({ name, description, tags, githubRepo }: RightPanelProps) => {
+export const RightPanel = ({ name, description, tags, githubRepo }: RoomSchema) => {
   return (
     <ResizablePanel
       className="flex flex-col gap-y-4"
@@ -44,23 +42,8 @@ export const RightPanel = ({ name, description, tags, githubRepo }: RightPanelPr
           <TagList tags={tags} />
         </CardContent>
       </Card>
-      <Card className="justify-center rounded-md p-4 shadow-sm">
-        <Tabs className="flex w-full flex-col" defaultValue="chat">
-          <TabsList className="flex w-full items-center">
-            <TabsTrigger value="chat" className="flex-1">
-              Chat
-            </TabsTrigger>
-            <TabsTrigger value="participants" className="flex-1">
-              Participants
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="chat" className="h-36 rounded border p-2">
-            Make changes to your chat here.
-          </TabsContent>
-          <TabsContent value="participants" className="h-36 rounded border p-2">
-            Change your participants here.
-          </TabsContent>
-        </Tabs>
+      <Card className="rounded-md px-4 py-3 shadow-sm">
+        <CallParticipantsList onClose={() => {}} />
       </Card>
     </ResizablePanel>
   );

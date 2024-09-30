@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 type HeaderProps = PropsWithChildren & { className?: string };
 
-const Header = ({ children, className }: HeaderProps) => {
+export const Header = ({ children, className }: HeaderProps) => {
   return (
     <header
       className={cn("sticky top-0 bg-white p-4 text-white dark:bg-black", className)}
