@@ -26,3 +26,13 @@ export const getRoomQuery = async (id: string) => {
     return { success: false };
   }
 };
+
+export const searchRoomsQuery = async (query: string) => {
+  try {
+    const token = await getAuthToken();
+    const request = await preloadQuery(api.rooms.search, { query }, { token });
+    return { query: request, success: true };
+  } catch (error) {
+    return { success: false };
+  }
+};

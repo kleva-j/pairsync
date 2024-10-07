@@ -3,13 +3,14 @@ import { z } from "zod";
 
 // Auth constants
 export const SIGNIN_ERROR_URL = "/api/auth/signin/error";
+export const SEARCH_ROOMS_URL = "/room/?search=";
 export const SIGNOUT_URL = "/api/auth/signout";
 export const CREATE_ROOM_URL = "/room/create";
 export const SIGNIN_URL = "/auth/sign-in";
 export const SIGNUP_URL = "/auth/sign-up";
-export const ALL_ROOMS_URL = "/room";
 export const ROOM_ID_URL = "/room/id";
 export const CONSOLE_URL = "/console";
+export const ALL_ROOMS_URL = "/room";
 export const HOME_URL = "/";
 
 // Room constants
@@ -28,6 +29,9 @@ export const createRoomSchema = z.object({
   githubRepo: z.optional(z.string().url("Must be a valid URL")),
   tags: z.array(z.object({ value: z.string(), label: z.string() })),
 });
+
+export const searchSchema = z.object({ search: z.string() });
+export type SearchSchema = z.infer<typeof searchSchema>;
 
 export type CreateRoomFormSchema = z.infer<typeof createRoomSchema>;
 export type RoomSchema = CreateRoomFormSchema;

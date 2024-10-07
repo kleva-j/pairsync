@@ -30,7 +30,12 @@ import {
 
 import { createRoomAction } from "@/room/create/actions";
 
-export const CreateRoomForm = () => {
+type ComponentProps = {
+  handleSubmit?: () => void | Promise<void>;
+  handleError?: (error: unknown) => void;
+};
+
+export const CreateRoomForm = ({ handleSubmit, handleError }: ComponentProps) => {
   const form = useForm({ resolver, defaultValues });
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -41,10 +46,13 @@ export const CreateRoomForm = () => {
       await createRoomAction(data);
       toast.success("Room created successfully!");
       setLoading(false);
-      router.push(ALL_ROOMS_URL);
+
+      if (handleSubmit) await handleSubmit();
+      else router.push(ALL_ROOMS_URL);
     } catch (error) {
       setLoading(false);
       toast.error("Error creating room!");
+      handleError?.(error);
     }
   }
 

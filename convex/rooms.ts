@@ -32,6 +32,7 @@ export const getManyByUser = queryWithUser({
     const rooms = await db
       .query("rooms")
       .withIndex("by_user", (q) => q.eq("ownerId", identity.tokenIdentifier))
+      .order("desc")
       .collect();
     return rooms;
   },
@@ -46,6 +47,16 @@ export const getOneByUser = queryWithUser({
       .filter((q) => q.eq(q.field("_id"), roomId))
       .unique();
     return room;
+  },
+});
+
+export const search = queryWithUser({
+  args: { query: v.string() },
+  handler: async (ctx, { query }) => {
+    return await ctx.db
+      .query("rooms")
+      .withSearchIndex("by_name", (q) => q.search("name", query))
+      .collect();
   },
 });
 

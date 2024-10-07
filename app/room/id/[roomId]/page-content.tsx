@@ -14,6 +14,7 @@ import {
   StreamVideoClient,
 } from "@stream-io/video-react-sdk";
 
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import {
@@ -23,6 +24,7 @@ import {
 } from "@/components/ui/resizable";
 
 import { api } from "@/convex/_generated/api";
+import { ALL_ROOMS_URL } from "@/lib/contant";
 import { generateToken } from "@/room/id/[roomId]/actions";
 import { RightPanel } from "@/room/id/[roomId]/right-panel";
 import { Preloaded, usePreloadedQuery } from "convex/react";
@@ -36,6 +38,7 @@ type RoomListProps = {
 
 export const PageContent = ({ query, user }: RoomListProps) => {
   const room = usePreloadedQuery(query)!;
+  const router = useRouter();
 
   const [client, setclient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<Call | null>(null);
@@ -57,13 +60,22 @@ export const PageContent = ({ query, user }: RoomListProps) => {
     launchCall();
 
     return () => {
-      call && call.leave();
-      if (client) {
-        client.disconnectUser();
-        setclient(null);
-      }
+      call &&
+        call
+          .leave()
+          .then(() => {
+            if (client) {
+              client.disconnectUser();
+              setclient(null);
+            }
+          })
+          .catch(console.error);
     };
   }, []);
+
+  const onLeave = () => {
+    router.push(ALL_ROOMS_URL);
+  };
 
   return (
     client &&
@@ -76,7 +88,7 @@ export const PageContent = ({ query, user }: RoomListProps) => {
                 <div className="size-full space-y-3">
                   <Card className="flex-1 rounded p-4 shadow-sm">
                     <PaginatedGridLayout excludeLocalParticipant />
-                    <CallControls />
+                    <CallControls onLeave={onLeave} />
                   </Card>
                 </div>
               </ResizablePanel>
