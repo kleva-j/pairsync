@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, SearchIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useState } from "react";
 import { useForm } from "react-hook-form";
 import { RoomCard } from "@/components/room-card";
@@ -13,7 +13,13 @@ import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 
-import { SEARCH_ROOMS_URL, searchSchema, SearchSchema } from "@/lib/contant";
+import {
+  ALL_ROOMS_URL,
+  SEARCH_ROOMS_URL,
+  searchSchema,
+  type SearchSchema,
+} from "@/lib/contant";
+
 import { Preloaded, usePreloadedQuery } from "convex/react";
 
 type ContentProps = {
@@ -34,6 +40,8 @@ export const PageContent = ({ query, defaultValues }: ContentProps) => {
     router.push(`${SEARCH_ROOMS_URL}${search}`);
     setLoading(false);
   }
+
+  const querySearch = useSearchParams();
 
   return (
     <Fragment>
@@ -71,6 +79,18 @@ export const PageContent = ({ query, defaultValues }: ContentProps) => {
             {loading ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
             Search
           </Button>
+          {querySearch.get("search") && (
+            <Button
+              variant="link"
+              className="px-0"
+              onClick={() => {
+                form.reset();
+                router.push(ALL_ROOMS_URL);
+              }}
+            >
+              Clear
+            </Button>
+          )}
         </form>
       </Form>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
