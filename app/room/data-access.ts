@@ -6,7 +6,7 @@ import { preloadQuery } from "convex/nextjs";
 export const getRoomsQuery = async () => {
   try {
     const token = await getAuthToken();
-    const query = await preloadQuery(api.rooms.getManyByUser, {}, { token });
+    const query = await preloadQuery(api.rooms.getMany, {}, { token });
     return { query, success: true };
   } catch (error) {
     return { success: false };
@@ -14,13 +14,10 @@ export const getRoomsQuery = async () => {
 };
 
 export const getRoomQuery = async (id: string) => {
+  const roomId = id as Id<"rooms">;
   try {
     const token = await getAuthToken();
-    const query = await preloadQuery(
-      api.rooms.getOneByUser,
-      { roomId: id as Id<"rooms"> },
-      { token }
-    );
+    const query = await preloadQuery(api.rooms.getOneByUser, { roomId }, { token });
     return { query, success: true };
   } catch (error) {
     return { success: false };
@@ -30,7 +27,7 @@ export const getRoomQuery = async (id: string) => {
 export const searchRoomsQuery = async (query: string) => {
   try {
     const token = await getAuthToken();
-    const request = await preloadQuery(api.rooms.search, { query }, { token });
+    const request = await preloadQuery(api.rooms.searchByName, { query }, { token });
     return { query: request, success: true };
   } catch (error) {
     return { success: false };

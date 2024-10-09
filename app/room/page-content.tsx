@@ -1,11 +1,11 @@
 "use client";
 
+import { useUser } from "@clerk/nextjs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, SearchIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useState } from "react";
 import { useForm } from "react-hook-form";
-import { RoomCard } from "@/components/room-card";
 import { Button } from "@/components/ui/button";
 
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
@@ -20,6 +20,7 @@ import {
   type SearchSchema,
 } from "@/lib/contant";
 
+import { RoomCard } from "@/room/room-card";
 import { Preloaded, usePreloadedQuery } from "convex/react";
 
 type ContentProps = {
@@ -30,6 +31,8 @@ type ContentProps = {
 export const PageContent = ({ query, defaultValues }: ContentProps) => {
   const rooms = usePreloadedQuery(query);
   const router = useRouter();
+
+  const { isLoaded, user } = useUser();
 
   const [loading, setLoading] = useState(false);
 
@@ -42,6 +45,16 @@ export const PageContent = ({ query, defaultValues }: ContentProps) => {
   }
 
   const querySearch = useSearchParams();
+
+  const getAccessLevel = (ownerId: string): "guest" | "owner" | "member" => {
+    let defaultAccess: "guest" | "owner" = "guest";
+    if (isLoaded) {
+      const id = ownerId.split("|")[1] as string;
+      if (id === user?.id) defaultAccess = "owner";
+    }
+
+    return defaultAccess;
+  };
 
   return (
     <Fragment>
@@ -95,7 +108,13 @@ export const PageContent = ({ query, defaultValues }: ContentProps) => {
       </Form>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {Array.isArray(rooms)
-          ? rooms.map((room) => <RoomCard key={room._id} roomId={room._id} room={room} />)
+          ? rooms.map((room) => (
+              <RoomCard
+                key={room._id}
+                room={{ ...room, id: room._id }}
+                accessLevel={getAccessLevel(room.ownerId)}
+              />
+            ))
           : null}
       </div>
     </Fragment>

@@ -1,9 +1,21 @@
-import { Github, PlusIcon } from "lucide-react";
+import { Bell, Github, Play, Trash, UserPlus } from "lucide-react";
 
 import NextLink from "next/link";
 
 import { Link } from "next-view-transitions";
 import { TagList } from "@/components/tag-lists";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 import { Button } from "@/components/ui/button";
 
 import {
@@ -20,10 +32,13 @@ import {
 
 import { ROOM_ID_URL, type RoomSchema } from "@/lib/contant";
 
-type RoomCardProps = { room: RoomSchema; roomId: string };
+type RoomCardProps = {
+  room: RoomSchema & { ownerId: string; id: string };
+  accessLevel: "owner" | "guest" | "member";
+};
 
-export function RoomCard({ room, roomId }: RoomCardProps) {
-  const { name, description, tags } = room;
+export function RoomCard({ room, accessLevel }: RoomCardProps) {
+  const { id, name, description, githubRepo, tags } = room;
 
   return (
     <Dialog transition={{ type: "spring", bounce: 0.05, duration: 0.25 }}>
@@ -48,7 +63,13 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
             className="relative ml-1 flex size-6 shrink-0 scale-100 select-none appearance-none items-center justify-center rounded-lg border border-zinc-950/10 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 focus-visible:ring-2 active:scale-[0.98] dark:border-zinc-50/10 dark:bg-zinc-900 dark:text-zinc-500 dark:hover:bg-zinc-800 dark:hover:text-zinc-50 dark:focus-visible:ring-zinc-500"
             aria-label="Open dialog"
           >
-            <PlusIcon size={12} />
+            {
+              {
+                owner: <Play size={12} />,
+                guest: <UserPlus size={12} />,
+                member: <Bell size={12} />,
+              }[accessLevel]
+            }
           </button>
         </div>
       </DialogTrigger>
@@ -83,14 +104,15 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
               <TagList tags={tags} />
 
               <div className="flex items-center justify-end gap-x-4">
-                {room.githubRepo && (
+                {githubRepo && (
                   <Button
                     variant="link"
                     className="size-7 rounded px-1 text-neutral-500 hover:text-neutral-600 dark:text-neutral-400 dark:hover:text-neutral-300"
+                    title="Open GitHub project"
                     asChild
                   >
                     <NextLink
-                      href={room.githubRepo || "#"}
+                      href={githubRepo || "#"}
                       rel="noreferrer noopener"
                       target="_blank"
                     >
@@ -99,8 +121,41 @@ export function RoomCard({ room, roomId }: RoomCardProps) {
                   </Button>
                 )}
 
+                {accessLevel === "owner" && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        className="-ml-2 size-7 p-0 text-red-400 hover:text-red-500"
+                        variant="link"
+                        title="Delete room"
+                      >
+                        <Trash className="size-5 stroke-[1px]" />
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete your
+                          room and remove your data from our servers.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction>Continue</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+
                 <Button className="h-8 font-semibold" variant="secondary">
-                  <Link href={`${ROOM_ID_URL}/${roomId}`}>Join</Link>
+                  {
+                    {
+                      owner: <Link href={`${ROOM_ID_URL}/${id}`}>Start</Link>,
+                      guest: <Link href={`${ROOM_ID_URL}/${id}`}>Request to Join</Link>,
+                      member: <Link href={`${ROOM_ID_URL}/${id}`}>Join</Link>,
+                    }[accessLevel]
+                  }
                 </Button>
               </div>
             </DialogDescription>
