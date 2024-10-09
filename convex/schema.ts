@@ -23,7 +23,9 @@ export const roomMemberSchema = {
 export default defineSchema({
   rooms: defineTable(roomSchema)
     .index("by_user", ["ownerId"])
-    .searchIndex("by_name", { searchField: "name" }),
+    .searchIndex("by_name", { searchField: "name" })
+    .searchIndex("by_tags", { searchField: "tags" })
+    .searchIndex("by_language", { searchField: "language" }),
   users: defineTable(userSchema).index("by_token", ["tokenIdentifier"]),
   roomMembers: defineTable(roomMemberSchema).index("by_room", ["roomId"]),
 });

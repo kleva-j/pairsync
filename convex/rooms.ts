@@ -6,15 +6,15 @@ import schema from "./schema";
 import { mutateWithUser, queryWithUser } from "./utils";
 
 // INTERNAL QUERIES
-export const getMany = internalQuery({
+export const getManyInternal = internalQuery({
   args: {},
   handler: async ({ db }) => {
-    const rooms = await db.query("rooms").order("desc").take(100);
+    const rooms = await db.query("rooms").order("desc").collect();
     return rooms;
   },
 });
 
-export const getOne = internalQuery({
+export const getOneInternal = internalQuery({
   args: { roomId: v.id("rooms") },
   handler: async ({ db }, { roomId }) => {
     const room = await db
@@ -26,6 +26,25 @@ export const getOne = internalQuery({
 });
 
 // ROOMS QUERIES
+export const getMany = queryWithUser({
+  args: {},
+  handler: async ({ db }) => {
+    const rooms = await db.query("rooms").order("desc").collect();
+    return rooms;
+  },
+});
+
+export const getOne = queryWithUser({
+  args: { roomId: v.id("rooms") },
+  handler: async ({ db }, { roomId }) => {
+    const room = await db
+      .query("rooms")
+      .filter((q) => q.eq(q.field("_id"), roomId))
+      .collect();
+    return room;
+  },
+});
+
 export const getManyByUser = queryWithUser({
   args: {},
   handler: async ({ db, identity }) => {
@@ -50,12 +69,32 @@ export const getOneByUser = queryWithUser({
   },
 });
 
-export const search = queryWithUser({
+export const searchByName = queryWithUser({
   args: { query: v.string() },
   handler: async (ctx, { query }) => {
     return await ctx.db
       .query("rooms")
       .withSearchIndex("by_name", (q) => q.search("name", query))
+      .collect();
+  },
+});
+
+export const searchByLanguage = queryWithUser({
+  args: { query: v.string() },
+  handler(ctx, { query }) {
+    return ctx.db
+      .query("rooms")
+      .withSearchIndex("by_language", (q) => q.search("language", query))
+      .collect();
+  },
+});
+
+export const searchByTags = queryWithUser({
+  args: { query: v.string() },
+  handler(ctx, { query }) {
+    return ctx.db
+      .query("rooms")
+      .withSearchIndex("by_tags", (q) => q.search("tags", query))
       .collect();
   },
 });
