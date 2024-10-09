@@ -8,7 +8,7 @@ export default async function ConsolePage() {
     <section>
       <Header>
         <Button variant="link" asChild>
-          <Link href={ALL_ROOMS_URL}>Rooms</Link>
+          <Link href={ALL_ROOMS_URL}>Explore Rooms</Link>
         </Button>
       </Header>
       <section className="grid place-items-center">
