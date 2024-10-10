@@ -35,9 +35,10 @@ import { ROOM_ID_URL, type RoomSchema } from "@/lib/contant";
 type RoomCardProps = {
   room: RoomSchema & { ownerId: string; id: string };
   accessLevel: "owner" | "guest" | "member";
+  deleteRoom: (id: string) => Promise<void>;
 };
 
-export function RoomCard({ room, accessLevel }: RoomCardProps) {
+export function RoomCard({ room, accessLevel, deleteRoom }: RoomCardProps) {
   const { id, name, description, githubRepo, tags } = room;
 
   return (
@@ -142,7 +143,9 @@ export function RoomCard({ room, accessLevel }: RoomCardProps) {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction>Continue</AlertDialogAction>
+                        <AlertDialogAction onClick={() => deleteRoom(id)}>
+                          Yes, delete
+                        </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>

@@ -4,14 +4,16 @@ import { useUser } from "@clerk/nextjs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, SearchIcon } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useState } from "react";
+import { Fragment, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 
 import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
 
 import {
   ALL_ROOMS_URL,
@@ -21,7 +23,7 @@ import {
 } from "@/lib/contant";
 
 import { RoomCard } from "@/room/room-card";
-import { Preloaded, usePreloadedQuery } from "convex/react";
+import { Preloaded, useMutation, usePreloadedQuery } from "convex/react";
 
 type ContentProps = {
   query: Preloaded<typeof api.rooms.getManyByUser>;
@@ -30,6 +32,8 @@ type ContentProps = {
 
 export const PageContent = ({ query, defaultValues }: ContentProps) => {
   const rooms = usePreloadedQuery(query);
+
+  const querySearch = useSearchParams();
   const router = useRouter();
 
   const { isLoaded, user } = useUser();
@@ -44,17 +48,25 @@ export const PageContent = ({ query, defaultValues }: ContentProps) => {
     setLoading(false);
   }
 
-  const querySearch = useSearchParams();
-
   const getAccessLevel = (ownerId: string): "guest" | "owner" | "member" => {
-    let defaultAccess: "guest" | "owner" = "guest";
-    if (isLoaded) {
-      const id = ownerId.split("|")[1] as string;
-      if (id === user?.id) defaultAccess = "owner";
-    }
-
-    return defaultAccess;
+    if (!isLoaded) return "guest";
+    const id = ownerId.split("|")[1];
+    return id === user?.id ? "owner" : "guest";
   };
+
+  const deleteRoomMutation = useMutation(api.rooms.remove);
+
+  const deleteRoom = useCallback(
+    async (roomId: string) => {
+      const id = roomId as Id<"rooms">;
+      toast.promise(deleteRoomMutation({ roomId: id }), {
+        loading: "Loading...",
+        success: "Room deleted successfully!",
+        error: "Error deleting room!",
+      });
+    },
+    [deleteRoomMutation]
+  );
 
   return (
     <Fragment>
@@ -111,6 +123,7 @@ export const PageContent = ({ query, defaultValues }: ContentProps) => {
           ? rooms.map((room) => (
               <RoomCard
                 key={room._id}
+                deleteRoom={deleteRoom}
                 room={{ ...room, id: room._id }}
                 accessLevel={getAccessLevel(room.ownerId)}
               />

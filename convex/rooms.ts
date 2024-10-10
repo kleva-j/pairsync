@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 
 import schema from "./schema";
@@ -115,5 +115,20 @@ export const create = mutateWithUser({
       ...input,
     });
     return room;
+  },
+});
+
+export const remove = mutateWithUser({
+  args: { roomId: v.id("rooms") },
+  returns: v.id("rooms"),
+  handler: async ({ db, identity }, { roomId }) => {
+    const room = await db.get(roomId);
+    if (!room || room.ownerId !== identity.tokenIdentifier) {
+      throw new ConvexError(
+        room ? "Can only delete own room" : `Room ID ${roomId} not found`
+      );
+    }
+    await db.delete(roomId);
+    return room._id;
   },
 });
