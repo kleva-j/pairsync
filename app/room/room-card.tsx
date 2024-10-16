@@ -155,7 +155,7 @@ export function RoomCard({ room, accessLevel, deleteRoom }: RoomCardProps) {
                   {
                     {
                       owner: <Link href={`${ROOM_ID_URL}/${id}`}>Start</Link>,
-                      guest: <Link href={`${ROOM_ID_URL}/${id}`}>Request to Join</Link>,
+                      guest: "Request to Join",
                       member: <Link href={`${ROOM_ID_URL}/${id}`}>Join</Link>,
                     }[accessLevel]
                   }
