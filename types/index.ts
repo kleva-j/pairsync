@@ -40,3 +40,28 @@ type DocFromTableDefinition<TableDef extends TableDefinition> = {
 export type DataModelFromSchemaDefinition<SchemaDef extends SchemaDefinition> = {
   [TableName in keyof SchemaDef]: Expand<DocFromTableDefinition<SchemaDef[TableName]>>;
 };
+
+export interface UrlPicsumPhotosOption {
+  width?: number;
+  height?: number;
+  grayscale?: boolean;
+  blur?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+}
+
+export interface UrlLoremFlickrOptions {
+  width?: number;
+  height?: number;
+  category?: string;
+}
+
+export type RangeOption =
+  | number
+  | {
+      min?: number;
+      max?: number;
+      multipleOf?: number;
+    };
+export interface Randomizer {
+  next(): number;
+  seed(seed: number | number[]): void;
+}

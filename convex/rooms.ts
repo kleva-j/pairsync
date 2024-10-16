@@ -1,13 +1,11 @@
 import { ConvexError, v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 
-import schema from "./schema";
-
+import { Rooms } from "./schema";
 import { mutateWithUser, queryWithUser } from "./utils";
 
 // INTERNAL QUERIES
 export const getManyInternal = internalQuery({
-  args: {},
   handler: async ({ db }) => {
     const rooms = await db.query("rooms").order("desc").collect();
     return rooms;
@@ -101,8 +99,7 @@ export const searchByTags = queryWithUser({
 
 // ROOMS MUTATIONS
 
-const roomFields = schema.tables.rooms.validator.fields;
-const { ownerId: _ownerId, ...createRoomFields } = roomFields;
+const { ownerId: _ownerIds, ...createRoomFields } = Rooms.withoutSystemFields;
 
 export const create = mutateWithUser({
   args: createRoomFields,
