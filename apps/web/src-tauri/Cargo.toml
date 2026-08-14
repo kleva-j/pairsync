@@ -1,10 +1,10 @@
 [package]
 name = "app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+description = "PairSync — secure peer-to-peer file transfer desktop app"
+authors = ["kleva-j <kasmickleva@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/kleva-j/pairsync"
 edition = "2021"
 rust-version = "1.77.2"
 
