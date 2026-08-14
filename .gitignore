@@ -1,38 +1,59 @@
-# dependencies
-/node_modules
-/.pnp
+# Dependencies
+node_modules
+.pnp
 .pnp.js
 
-# testing
-/coverage
+# Build outputs
+dist
+build
+*.tsbuildinfo
 
-# next.js
-/.next/
-/out/
+# Generated files
+apps/web/src/routeTree.gen.ts
+local.db
+local.db-*
 
-# production
-/build
+# Environment variables
+.env
+.env*.local
 
-# misc
+# IDEs and editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
 .DS_Store
-*.pem
 
-# debug
+# Logs
+logs
+.evlog/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
 
-# local env files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Turbo
+.turbo
+.nx
 
-# vercel
+# Better-T-Stack
+.alchemy
 .vercel
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+# Testing
+coverage
+.nyc_output
+
+# Misc
+*.tgz
+.cache
+tmp
+temp
+.freebuff
