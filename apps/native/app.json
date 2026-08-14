@@ -8,6 +8,12 @@
     },
     "name": "pairsync",
     "slug": "pairsync",
+    "ios": {
+      "bundleIdentifier": "com.pairsync.app"
+    },
+    "android": {
+      "package": "com.pairsync.app"
+    },
     "plugins": ["expo-font"],
     "experiments": {
       "typedRoutes": true,
