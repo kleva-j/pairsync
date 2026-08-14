@@ -65,6 +65,7 @@ pairsync/
 │   ├── native/      # Mobile application (React Native, Expo)
 ├── packages/
 │   ├── ui/          # Shared shadcn/ui components and styles
+│   ├── core/        # Shared domain schemas and types
 ```
 
 ## Available Scripts
