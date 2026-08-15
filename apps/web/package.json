@@ -9,6 +9,7 @@
     "serve": "vite preview",
     "start": "vite",
     "check-types": "vite build && tsc --noEmit",
+    "test": "vitest run",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
@@ -31,13 +32,16 @@
     "@tanstack/react-router-devtools": "^1.167.0",
     "@tanstack/router-plugin": "^1.168.23",
     "@tauri-apps/cli": "^2.11.4",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^22.20.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "^6.0.4",
+    "jsdom": "^30.0.1",
     "postcss": "^8.5.24",
     "tailwindcss": "catalog:",
     "typescript": "^6.0.3",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "catalog:"
   }
 }
