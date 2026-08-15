@@ -122,6 +122,12 @@ apps/native/
 - **Chunk Size:** 4MB (configurable)
 - **Concurrent Transfers:** Max 4 (configurable)
 
+## Build & Run
+
+- `pnpm dev:native` (root) — start the Expo dev server
+- `pnpm build` (root, via turbo) — runs `expo export --platform all`, exporting iOS/Android Hermes bundles + web static files to `dist/`
+- `pnpm test` (root) — runs vitest suites for packages with tests
+
 ## Common Tasks
 
 | Task | Location | Notes |

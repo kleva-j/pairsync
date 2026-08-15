@@ -177,7 +177,7 @@ The current project is a **skeleton**. Without proper foundation:
 
 **Phase 0 Status (Aug 14, 2026):**
 
-- ✅ **0.1** — CI workflow added; `pnpm check-types` / `pnpm build` green across all packages
+- ✅ **0.1** — build pipeline validated for all targets: `pnpm build` builds web (vite) + native (`expo export`, all platforms); `pnpm build:desktop` builds the Tauri app (release + macOS bundles verified locally); CI runs typecheck, test, build, and a desktop-build job
 - ✅ **0.2** — `packages/config/tsconfig.base.json` exists and is extended by every package
 - ✅ **0.3** — `@pairsync/core` has a manifest, entry point, and turbo `check-types` task
 - ✅ **0.4** — `@pairsync/env` provides zod-validated `./web` and `./native` schemas
