@@ -10,8 +10,11 @@
  *
  * react-native-quick-crypto is a native (JSI/Nitro) module, so this will
  * NOT run in Expo Go or on web. To run it, build a dev client
- * (`npx expo prebuild && npx expo run:ios` / `run:android`) and import
- * this module from any screen; results print to the console.
+ * (`npx expo prebuild && npx expo run:ios` / `run:android`), import
+ * `{ runSpike }` from this module in a screen, and call `runSpike()`
+ * explicitly. Results print to the console.
+ *
+ * This module does not self-execute on import.
  */
 import Crypto from "react-native-quick-crypto";
 
@@ -88,5 +91,3 @@ export function runSpike(): void {
 
   console.log("[spike] ALL CHECKS PASSED — X25519 + HKDF + AES-256-GCM available");
 }
-
-runSpike();

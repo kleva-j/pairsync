@@ -35,14 +35,14 @@ This is the root context map for the **PairSync** monorepo. Each context below d
 - **Location:** `packages/core/`
 - **CONTEXT.md:** `packages/core/CONTEXT.md`
 - **Domain:** Shared domain logic, state machines, and protocols
-- **Status:** 🚧 Placeholder — empty `schema.ts`/`types.ts`; nothing imports it yet
+- **Status:** ✅ Phase 0.6 implemented — shared types, constants, platform utils, and vitest tests; larger subsystems still planned (nothing imports it yet)
 - **Responsibilities:**
+  - Shared types (device/transfer/protocol), constants (ports/timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
   - Core state machines (XState) for device, discovery, transfer states — planned (Phase 1)
   - Protocol definitions and wire formats — planned (Phase 1)
   - Discovery logic (UDP multicast, mDNS, manual IP) — planned (Phase 2)
   - Transfer engine (chunked streaming, resume, verification) — planned (Phase 3)
   - Security (TLS+TOFU, QR+ECDH handshake, encryption) — planned (Phase 4)
-  - Shared types and constants — planned (Phase 1+)
 
 #### ui
 - **Location:** `packages/ui/`
@@ -109,7 +109,7 @@ Root-level ADRs that apply to the entire monorepo are stored in `docs/adr/`. Con
 
 The diagram shows the **target** architecture. Current dependency reality:
 
-- **core** is the planned foundation — nothing imports `@pairsync/core` yet (placeholder)
+- **core** holds implemented shared types/constants/utils but nothing imports `@pairsync/core` yet (consumers land in Phase 1)
 - **ui** is consumed by `apps/web` only (native uses `uniwind` + `heroui-native`)
 - **env** is declared in web/native/root manifests but imported by no code yet
 - **config** has no runtime exports — it only ships `tsconfig.base.json`

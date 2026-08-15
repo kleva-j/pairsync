@@ -181,16 +181,16 @@ The current project is a **skeleton**. Without proper foundation:
 - ✅ **0.2** — `packages/config/tsconfig.base.json` exists and is extended by every package
 - ✅ **0.3** — `@pairsync/core` has a manifest, entry point, and turbo `check-types` task
 - ✅ **0.4** — `@pairsync/env` provides zod-validated `./web` and `./native` schemas
-- ⏳ **0.5** — not started (no test framework configured yet)
-- ⏳ **0.6** — partial: `schema.ts` / `types.ts` are empty stubs awaiting the Phase 1 domain model
-- ⏳ **0.7** — not started
+- ✅ **0.5** — vitest wired into `@pairsync/core` + `@pairsync/env` with 17 passing unit tests; turbo `test` task, root `pnpm test`, and a CI `test` job added (E2E — Playwright/Detox — deferred to later phases)
+- ✅ **0.6** — shared types (`device`/`transfer`/`protocol`), constants (ports/timeouts/sizes), and platform utils implemented in `@pairsync/core` with tests
+- ✅ **0.7** — `.github/CONTRIBUTING.md` and `.github/pull_request_template.md` added
 
 ### Deliverables
 
 ```
 packages/
 ├── config/
-│   └── src/tsconfig.base.json  # Shared TS config
+│   └── tsconfig.base.json      # Shared TS config (package root, no src/)
 ├── core/
 │   ├── src/
 │   │   ├── types/               # Shared TypeScript types
@@ -230,8 +230,8 @@ apps/
 - [ ] `pnpm run dev` starts all apps without errors
 - [ ] `pnpm run build` builds all targets successfully
 - [ ] Shared types can be imported from `@pairsync/core` in any app
-- [ ] Unit test framework runs and passes basic tests
-- [ ] Development workflow documented
+- [x] Unit test framework runs and passes basic tests
+- [x] Development workflow documented
 
 ### Dependencies
 
