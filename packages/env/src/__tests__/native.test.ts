@@ -14,6 +14,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.EXPO_PUBLIC_SERVER_URL;
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("native env schema", () => {
@@ -23,11 +24,15 @@ describe("native env schema", () => {
   });
 
   it("rejects a missing EXPO_PUBLIC_SERVER_URL", async () => {
+    // The rejection is expected — silence env-core's error log so the
+    // suite output isn't mistaken for a failure.
+    vi.spyOn(console, "error").mockImplementation(() => {});
     delete process.env.EXPO_PUBLIC_SERVER_URL;
     await expect(loadEnv()).rejects.toThrow();
   });
 
   it("treats an empty value as missing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
     process.env.EXPO_PUBLIC_SERVER_URL = "";
     await expect(loadEnv()).rejects.toThrow();
   });

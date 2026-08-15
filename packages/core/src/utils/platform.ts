@@ -41,12 +41,16 @@ export function isMobile(): boolean {
   return runningInReactNative();
 }
 
-/** True when running in a browser or Tauri webview. */
+/**
+ * True when a DOM/window exists — i.e. a plain browser **or** the Tauri
+ * webview. Use `getPlatform()` when you need to distinguish the two:
+ * `isDesktop()` is checked first, so a Tauri webview reports `"desktop"`.
+ */
 export function isWeb(): boolean {
   return hasWindow() && !runningInReactNative();
 }
 
-/** True when running inside the Tauri desktop shell. */
+/** True when running inside the Tauri desktop shell (implies `isWeb()` too). */
 export function isDesktop(): boolean {
   return runningInTauri();
 }
