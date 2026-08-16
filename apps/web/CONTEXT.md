@@ -119,6 +119,12 @@ apps/web/
 - Screen reader compatible
 - Respects `prefers-reduced-motion`
 
+## Build & Run
+
+- `pnpm dev:web` (root) — start the Vite dev server (also used by `tauri dev` via `beforeDevCommand`)
+- `pnpm build` (root, via turbo) — runs `vite build` → `dist/` (the Tauri `frontendDist`)
+- `pnpm build:desktop` (root) — runs `tauri build` (vite build + Rust release compile + platform bundles; verified locally on macOS; CI runs it in the `desktop-build` job on Ubuntu with webkit2gtk system deps)
+
 ## Common Tasks
 
 | Task | Location | Notes |

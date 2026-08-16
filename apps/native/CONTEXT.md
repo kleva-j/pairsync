@@ -122,6 +122,13 @@ apps/native/
 - **Chunk Size:** 4MB (configurable)
 - **Concurrent Transfers:** Max 4 (configurable)
 
+## Build & Run
+
+- `pnpm dev:native` (root) — start the Expo dev server
+- `pnpm build` (root, via turbo) — runs `expo export --platform all`, exporting iOS/Android Hermes bundles + web static files to `dist/`
+- `pnpm test` (root) — runs test suites per package: vitest (core/env/web) and jest + jest-expo (native)
+- CI splits the suites into separate jobs: `test` runs the JS suites (`turbo run test --filter '!native'`), `native-test` runs jest (`turbo run test --filter native`)
+
 ## Common Tasks
 
 | Task | Location | Notes |

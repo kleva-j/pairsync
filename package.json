@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "build:desktop": "pnpm --filter web desktop:build",
     "check-types": "turbo run check-types",
+    "test": "turbo run test",
     "dev:native": "turbo run dev -F native --",
     "dev:web": "turbo run dev -F web --"
   },

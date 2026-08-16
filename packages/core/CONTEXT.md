@@ -8,20 +8,32 @@
 
 ## Purpose
 
-The **core** package is the intended home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
+The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> 🚧 **Status: placeholder.** The package is scaffolded (manifest, tsconfig, entry point) but contains **no implementation** — `schema.ts` and `types.ts` are empty module markers. **No code in the repo imports `@pairsync/core` yet** (no `workspace:*` dependency declares it). Everything marked *Planned* below is target design from `IMPLEMENTATION_PLAN.md`, **not current code**.
+> ✅ **Status: Phase 0.6 implemented.** Shared types, constants, and platform utils are implemented and unit-tested. The larger subsystems (state machines, discovery, transfer engine, security) are **Planned** — see the table below. **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 1+.
 
 ## Current Structure
 
 ```
 packages/core/
 ├── src/
-│   ├── index.ts      # Re-exports ./schema and ./types
-│   ├── schema.ts     # Placeholder (`export {}`) — future zod schemas
-│   └── types.ts      # Placeholder (`export {}`) — future domain types
-├── package.json      # @pairsync/core — exports "./src/index.ts"
-└── tsconfig.json     # extends @pairsync/config/tsconfig.base.json
+│   ├── index.ts           # Re-exports ./types, ./constants, ./utils
+│   ├── types/
+│   │   ├── device.ts      # Platform, NetworkInterface, Device
+│   │   ├── transfer.ts    # TransferState, Transfer, Chunk, Manifest
+│   │   ├── protocol.ts    # HeartbeatPayload, PrepareRequest/Response, Chunk/Resume
+│   │   └── index.ts
+│   ├── constants/
+│   │   ├── ports.ts       # DISCOVERY_PORT, TRANSFER_PORTS (53351–53360)
+│   │   ├── timeouts.ts    # HEARTBEAT_*, CONNECTION_TIMEOUT, TRANSFER_TIMEOUT
+│   │   ├── sizes.ts       # CHUNK_SIZE, MOBILE/DESKTOP_BUFFER_LIMIT
+│   │   └── index.ts
+│   ├── utils/
+│   │   ├── platform.ts    # getPlatform, isMobile, isWeb, isDesktop, isNode
+│   │   └── index.ts
+│   └── __tests__/         # Vitest: constants.test.ts, platform.test.ts
+├── package.json           # @pairsync/core — exports "./src/index.ts", test script
+└── tsconfig.json          # extends @pairsync/config/tsconfig.base.json
 ```
 
 ## Exports Map
@@ -30,24 +42,27 @@ packages/core/
 { ".": "./src/index.ts" }
 ```
 
-Import as `import { ... } from "@pairsync/core";` — the entry currently re-exports only the empty placeholder modules, so there is nothing meaningful to import yet.
+Import as `import { Device, CHUNK_SIZE, isMobile } from "@pairsync/core";` — types, constants, and utils are all re-exported from the entry.
 
 ## Dependencies
 
 | Dependency | Status | Purpose |
 |------------|--------|---------|
-| `zod` | ✅ Installed | Schema validation (planned: message/transfer schemas) |
+| `zod` | ✅ Installed (unused so far) | Schema validation — planned for message/transfer schemas (Phase 1) |
+| `vitest` | ✅ devDep | Unit tests (11 passing) |
 
 Planned (per `IMPLEMENTATION_PLAN.md`): `xstate` for the state machines (Phase 1). Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
 
-## Planned Responsibilities (by phase)
+## Responsibilities (by phase)
 
 | Subsystem | Plan phase | Status |
 |-----------|-----------|--------|
-| State machines (XState): device, discovery, transfer | Phase 1 | 🚧 Planned — not implemented |
-| Protocol constants + message schemas | Phase 1 | 🚧 Planned |
+| Shared types (device, transfer, chunk, manifest, protocol) | Phase 0 (0.6) | ✅ Implemented + tested |
+| Shared constants (ports, timeouts, sizes) | Phase 0 (0.6) | ✅ Implemented + tested |
+| Platform detection utils | Phase 0 (0.6) | ✅ Implemented + tested |
+| State machines (XState): device, discovery, transfer | Phase 1 | 🚧 Planned |
+| Protocol constants + message schemas (zod) | Phase 1 | 🚧 Planned |
 | Network utilities (interface selection, heartbeat) | Phase 1 | 🚧 Planned |
-| Shared types | Phase 1 | 🚧 Planned |
 | Discovery (UDP multicast, mDNS, manual IP) + connection | Phase 2 | 🚧 Planned |
 | SQLite database setup + schema | Phase 2 | 🚧 Planned |
 | Transfer engine (prepare, chunked upload/download, resume, verify, queue) | Phase 3 | 🚧 Planned |
@@ -56,9 +71,9 @@ Planned (per `IMPLEMENTATION_PLAN.md`): `xstate` for the state machines (Phase 1
 | Security: TLS 1.3 + TOFU, ECDH handshake, trust storage | Phase 4 | 🚧 Planned |
 | Background transfer support | Phase 5 | 🚧 Planned |
 
-## Domain Vocabulary (planned)
+## Domain Vocabulary
 
-Domain terms from the PRD/plan — relevant once the package is implemented:
+Domain terms from the PRD/plan — the type names in `src/types/` follow these:
 
 | Term | Definition | Example |
 |------|------------|---------|
@@ -71,7 +86,24 @@ Domain terms from the PRD/plan — relevant once the package is implemented:
 | **ECDH** | Elliptic Curve Diffie-Hellman — key exchange protocol | X25519 Curve25519 |
 | **State Machine** | XState machine defining lifecycle states | deviceMachine, transferMachine |
 
-## Planned Protocol Wire Format (design only — not implemented)
+## Implemented Constants
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `DISCOVERY_PORT` | `53350` | UDP multicast/mDNS port |
+| `TRANSFER_PORT_START` / `TRANSFER_PORT_END` | `53351` / `53360` | TCP transfer port range |
+| `TRANSFER_PORTS` | `[53351…53360]` | All 10 transfer ports |
+| `HEARTBEAT_INTERVAL` | `5000` | Heartbeat broadcast interval (ms) |
+| `HEARTBEAT_TIMEOUT` | `25000` | Device removal after timeout (ms) |
+| `CONNECTION_TIMEOUT` | `10000` | Connection establishment timeout (ms) |
+| `TRANSFER_TIMEOUT` | `300000` | Overall transfer timeout (ms) |
+| `CHUNK_SIZE` | `4194304` | 4MB chunk size (bytes) |
+| `MOBILE_BUFFER_LIMIT` | `52428800` | 50MB mobile buffer |
+| `DESKTOP_BUFFER_LIMIT` | `209715200` | 200MB desktop buffer |
+
+Not yet defined (Phase 1+): `PROTOCOL_VERSION`, `MAX_CONCURRENT_TRANSFERS`, `CERT_VALIDITY_DAYS`, `CERT_REGEN_DAYS`.
+
+## Protocol Wire Format (design only — types defined, transport not implemented)
 
 ### Heartbeat Payload (JSON)
 
@@ -117,25 +149,9 @@ X-Cert-Fingerprint: <SHA-256 of sender's cert>
 }
 ```
 
-## Planned Constants (Phase 1)
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `PROTOCOL_VERSION` | `"1.0"` | Current protocol version |
-| `DISCOVERY_PORT` | `53350` | UDP multicast/mDNS port |
-| `TRANSFER_PORTS` | `53351-53360` | TCP transfer port range |
-| `HEARTBEAT_INTERVAL` | `5000` | Heartbeat broadcast interval (ms) |
-| `HEARTBEAT_TIMEOUT` | `25000` | Device removal after timeout (ms) |
-| `CHUNK_SIZE` | `4194304` | 4MB chunk size (bytes) |
-| `MOBILE_BUFFER_LIMIT` | `52428800` | 50MB mobile buffer |
-| `DESKTOP_BUFFER_LIMIT` | `209715200` | 200MB desktop buffer |
-| `MAX_CONCURRENT_TRANSFERS` | `4` | Concurrent transfer limit |
-| `CERT_VALIDITY_DAYS` | `30` | Certificate lifetime |
-| `CERT_REGEN_DAYS` | `7` | Auto-regenerate threshold |
-
 ## Testing
 
-No test framework is configured for this package yet. Unit/integration tests for state machines, protocol, and transfers are planned (Phase 1+) but not present.
+Vitest is configured (`test: vitest run`). 11 unit tests pass covering constants (ports/timeouts/sizes) and platform detection (node/web/mobile/desktop via stubbed globals). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
 
 ## ADRs
 

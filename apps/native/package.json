@@ -7,6 +7,8 @@
     "start": "expo start",
     "dev": "expo start --clear",
     "check-types": "tsc --noEmit",
+    "test": "jest",
+    "build": "expo export --platform all",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "prebuild": "expo prebuild",
@@ -49,8 +51,27 @@
   },
   "devDependencies": {
     "@pairsync/config": "workspace:*",
+    "@react-native/jest-preset": "^0.86.2",
+    "@testing-library/react-native": "^14.0.1",
+    "@types/jest": "^29.5.14",
     "@types/node": "^26.1.2",
     "@types/react": "~19.2.17",
+    "jest": "^29.7.0",
+    "jest-expo": "^57.0.4",
     "typescript": "~6.0.3"
+  },
+  "jest": {    "preset": "jest-expo",
+    "setupFiles": ["./jest.setup.js"],
+    "setupFilesAfterEnv": ["./jest.setup-after-env.js"],
+    "moduleNameMapper": {
+      "^react-native-reanimated/mock$": "<rootDir>/__mocks__/reanimated-mock.js",
+      "\\.(css)$": "<rootDir>/__mocks__/styleMock.js",
+      "^@/(.*)$": "<rootDir>/$1"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(.pnpm|react-native|@react-native|@react-native-community|expo|@expo|@expo-google-fonts|react-navigation|@react-navigation|@sentry/react-native|native-base|standard-navigation|heroui-native|uniwind|react-native-keyboard-controller|react-native-worklets))",
+      "/node_modules/react-native-reanimated/plugin/",
+      "/node_modules/@react-native/babel-preset/"
+    ]
   }
 }

@@ -8,7 +8,8 @@
     "./native": "./src/native.ts"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@t3-oss/env-core": "^0.13.11",
@@ -19,6 +20,7 @@
     "@pairsync/config": "workspace:*",
     "@types/node": "^22.20.1",
     "typescript": "^6.0.3",
-    "vite": "^8.1.5"
+    "vite": "^8.1.5",
+    "vitest": "catalog:"
   }
 }
