@@ -1,5 +1,5 @@
 import { act } from "react";
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
 describe("web app entry point (main.tsx)", () => {
