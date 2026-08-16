@@ -1,0 +1,126 @@
+import { createActor } from "xstate";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { TRANSFER_TIMEOUT } from "../constants";
+import type { Transfer } from "../types";
+import { MAX_RESUME_ATTEMPTS, transferMachine } from "../state";
+
+const transfer: Transfer = {
+  transfer_id: "t-1",
+  file_id: "f-1",
+  file_name: "notes.txt",
+  file_size: 1_000_000,
+  chunk_size: 4 * 1024 * 1024,
+  total_chunks: 4,
+  hash_algorithm: "SHA-256",
+  file_hash: "abc123",
+  kind: "file",
+  state: "PREPARING",
+  created_at: 1_700_000_000_000,
+};
+
+describe("transfer machine", () => {
+  it("walks the happy path: preparing → transferring → verifying → complete", () => {
+    const actor = createActor(transferMachine).start();
+    expect(actor.getSnapshot().value).toBe("preparing");
+
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    expect(actor.getSnapshot().value).toBe("transferring");
+
+    for (let i = 0; i < transfer.total_chunks - 1; i++) {
+      actor.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+      expect(actor.getSnapshot().value).toBe("transferring");
+    }
+
+    // Final chunk flips into verifying.
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: transfer.total_chunks - 1 });
+    expect(actor.getSnapshot().value).toBe("verifying");
+
+    actor.send({ type: "VERIFY_OK" });
+    expect(actor.getSnapshot().value).toBe("complete");
+    expect(actor.getSnapshot().status).toBe("done");
+  });
+
+  it("cancels from transferring and from verifying", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    actor.send({ type: "CANCEL" });
+    expect(actor.getSnapshot().value).toBe("cancelled");
+
+    const actor2 = createActor(transferMachine).start();
+    actor2.send({ type: "START", transfer });
+    actor2.send({ type: "PREPARED" });
+    for (let i = 0; i < transfer.total_chunks; i++) {
+      actor2.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+    }
+    expect(actor2.getSnapshot().value).toBe("verifying");
+    actor2.send({ type: "CANCEL" });
+    expect(actor2.getSnapshot().value).toBe("cancelled");
+  });
+
+  it("moves to error on rejection, chunk failure, and verify failure", () => {
+    const reject = createActor(transferMachine).start();
+    reject.send({ type: "START", transfer });
+    reject.send({ type: "PREPARE_REJECTED", reason: "disk full" });
+    expect(reject.getSnapshot().value).toBe("error");
+    expect(reject.getSnapshot().context.lastError).toBe("disk full");
+
+    const chunkFail = createActor(transferMachine).start();
+    chunkFail.send({ type: "START", transfer });
+    chunkFail.send({ type: "PREPARED" });
+    chunkFail.send({ type: "CHUNK_FAILED", reason: "socket reset" });
+    expect(chunkFail.getSnapshot().value).toBe("error");
+
+    const verifyFail = createActor(transferMachine).start();
+    verifyFail.send({ type: "START", transfer });
+    verifyFail.send({ type: "PREPARED" });
+    for (let i = 0; i < transfer.total_chunks; i++) {
+      verifyFail.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+    }
+    verifyFail.send({ type: "VERIFY_FAILED", reason: "hash mismatch" });
+    expect(verifyFail.getSnapshot().value).toBe("error");
+    expect(verifyFail.getSnapshot().context.lastError).toBe("hash mismatch");
+  });
+
+  it("enforces the resume cap: MAX_RESUME_ATTEMPTS resumes, then refuses", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    actor.send({ type: "CHUNK_FAILED", reason: "disconnect" });
+    expect(actor.getSnapshot().value).toBe("error");
+
+    for (let i = 1; i <= MAX_RESUME_ATTEMPTS; i++) {
+      actor.send({ type: "RESUME", chunksReceived: 2 });
+      expect(actor.getSnapshot().value).toBe("transferring");
+      actor.send({ type: "CHUNK_FAILED", reason: "disconnect" });
+      expect(actor.getSnapshot().value).toBe("error");
+    }
+
+    actor.send({ type: "RESUME", chunksReceived: 2 });
+    expect(actor.getSnapshot().value).toBe("error");
+  });
+
+  it("times out while transferring", () => {
+    vi.useFakeTimers();
+    try {
+      const actor = createActor(transferMachine).start();
+      actor.send({ type: "START", transfer });
+      actor.send({ type: "PREPARED" });
+      vi.advanceTimersByTime(TRANSFER_TIMEOUT);
+      expect(actor.getSnapshot().value).toBe("error");
+      expect(actor.getSnapshot().context.lastError).toContain("timed out");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+beforeEach(() => {
+  vi.useRealTimers();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
