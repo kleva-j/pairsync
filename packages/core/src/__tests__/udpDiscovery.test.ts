@@ -16,6 +16,8 @@ class FakeSocket implements MulticastSocket {
   failGroup?: string;
   /** When set, joinGroup awaits this promise first (to hold start() mid-flight). */
   joinPending?: Promise<void>;
+  /** When set, send awaits this promise first (to hold a tick in flight). */
+  sendPending?: Promise<void>;
 
   private handler?: (data: Uint8Array, remote: { address: string; port: number }) => void;
 
@@ -24,6 +26,7 @@ class FakeSocket implements MulticastSocket {
   }
 
   async send(data: Uint8Array, port: number, address: string): Promise<void> {
+    if (this.sendPending) await this.sendPending;
     this.closed = false; // a real adapter re-binds lazily after close
     if (this.failNextSend) {
       this.failNextSend = false;
@@ -264,7 +267,7 @@ describe("MulticastDiscovery", () => {
     expect(scheduler.pending).toBe(0);
   });
 
-  it("stop() during an in-flight start() leaves no timer behind", async () => {
+  it("stop() during an in-flight start() leaves no timer or membership behind", async () => {
     const { socket, scheduler, discovery } = setup();
     let release!: () => void;
     socket.joinPending = new Promise<void>((resolve) => {
@@ -275,10 +278,29 @@ describe("MulticastDiscovery", () => {
     release();
     await startPromise;
     expect(scheduler.pending).toBe(0); // no leaked 5s timer
-    expect(socket.left).toEqual(["224.0.0.1", "ff02::1"]); // cleanup ran
+    // stop() left both groups, and the interrupted join was rolled back, so
+    // the socket is not left with a membership and nothing was announced.
+    expect(socket.left).toEqual(["224.0.0.1", "ff02::1", "224.0.0.1"]);
+    expect(socket.messages.length).toBe(0);
     await scheduler.tick();
-    // Only the one interrupted announce fired; nothing periodic follows.
-    expect(socket.messages.length).toBe(2);
+    expect(socket.messages.length).toBe(0); // nothing periodic after
+  });
+
+  it("drops an overlapping interval tick while a send is in flight", async () => {
+    const { socket, scheduler, discovery } = setup();
+    await discovery.start(); // 2 messages (immediate announce)
+    let release!: () => void;
+    socket.sendPending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const tick1 = scheduler.tick(); // starts a send, blocked on the gate
+    const tick2 = scheduler.tick(); // fires while in flight -> dropped
+    release();
+    await tick1;
+    await tick2;
+    // Only the first tick's sends landed; the overlap was dropped.
+    expect(socket.messages.length).toBe(4);
+    await discovery.stop();
   });
 
   it("can be restarted after a stop", async () => {

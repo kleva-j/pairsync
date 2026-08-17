@@ -110,6 +110,8 @@ export class MulticastDiscovery {
 
   private timer: unknown = null;
   private started = false;
+  /** True while a heartbeat send is in flight (drops overlapping ticks). */
+  private sending = false;
   /** In-flight start, so concurrent calls share one lifecycle run. */
   private startPromise: Promise<void> | null = null;
   /** In-flight stop, so concurrent calls share one cleanup run. */
@@ -135,16 +137,27 @@ export class MulticastDiscovery {
     this.started = true;
     const run = (async () => {
       for (const group of this.groups) {
+        if (!this.started) return;
         try {
           await this.socket.joinGroup(group.address);
         } catch (error) {
           this.reportError(error);
         }
+        // stop() may have run while we were joining; undo this join so the
+        // group isn't left with a membership after stop()'s cleanup.
+        if (!this.started) {
+          try {
+            await this.socket.leaveGroup(group.address);
+          } catch (error) {
+            this.reportError(error);
+          }
+          return;
+        }
       }
       // Announce immediately, then on the interval. The callback returns the
       // send promise so schedulers (e.g. tests) can await a completed tick.
       await this.sendHeartbeat();
-      // stop() may have run while we were joining; never arm a timer for a
+      // stop() may have run while we were announcing; never arm a timer for a
       // stopped engine (that would leak a 5s send loop on a closed socket).
       if (this.started) {
         this.timer = this.scheduler.setInterval(
@@ -184,16 +197,28 @@ export class MulticastDiscovery {
     return this.stopPromise;
   }
 
-  /** Sends one heartbeat to every configured group. */
+  /**
+   * Sends one heartbeat to every configured group. Drops the call while a
+   * previous send is still in flight — real schedulers (`setInterval`) never
+   * await, so without this guard a slow send could overlap itself and emit
+   * concurrent datagrams on the same socket. Heartbeats tolerate a skipped
+   * tick (worst case one interval gap).
+   */
   async sendHeartbeat(): Promise<void> {
-    const payload = this.heartbeat();
-    const data = new TextEncoder().encode(buildHeartbeat(payload));
-    for (const group of this.groups) {
-      try {
-        await this.socket.send(data, group.port, group.address);
-      } catch (error) {
-        this.reportError(error);
+    if (this.sending) return;
+    this.sending = true;
+    try {
+      const payload = this.heartbeat();
+      const data = new TextEncoder().encode(buildHeartbeat(payload));
+      for (const group of this.groups) {
+        try {
+          await this.socket.send(data, group.port, group.address);
+        } catch (error) {
+          this.reportError(error);
+        }
       }
+    } finally {
+      this.sending = false;
     }
   }
 
