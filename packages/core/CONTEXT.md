@@ -122,7 +122,7 @@ Not yet defined (Phase 1+): `MAX_CONCURRENT_TRANSFERS`, `CERT_VALIDITY_DAYS`, `C
 
 ### Heartbeat Payload (JSON)
 
-Built by `buildHeartbeat()` and validated by `parseHeartbeat()` (via `heartbeatSchema`). The `type` discriminator comes from `MESSAGE_TYPES.HEARTBEAT`; platform values are lowercase (`ios`, `android`, …). `cert_fingerprint` is omitted until TLS ships.
+Built by `buildHeartbeat()` and validated by `parseHeartbeat()` (via `heartbeatSchema`). The `type` discriminator comes from `MESSAGE_TYPES.HEARTBEAT`; platform values are lowercase (`ios`, `android`, …). `cert_fingerprint` is optional — serialized only when the sender provides it (TLS isn't shipped yet). Interface addresses are validated as real IPv4/IPv6 (`z.ipv4()`/`z.ipv6()`).
 
 ```json
 {

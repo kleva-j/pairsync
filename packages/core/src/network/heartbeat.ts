@@ -28,8 +28,8 @@ export const heartbeatSchema = z.object({
   interfaces: z.array(
     z.object({
       type: z.enum(["Wi-Fi", "Ethernet", "Cellular", "Other"]),
-      ipv4: z.array(z.string()),
-      ipv6: z.array(z.string()),
+      ipv4: z.array(z.ipv4()),
+      ipv6: z.array(z.ipv6()),
       preferred: z.boolean(),
     }),
   ),
@@ -63,8 +63,9 @@ function describeZodIssues(error: z.ZodError): string {
 
 /**
  * Builds the wire JSON for a heartbeat. `port` should be the discovery port
- * (`DISCOVERY_PORT`) the sender listens on; `cert_fingerprint` is omitted
- * until TLS ships.
+ * (`DISCOVERY_PORT`) the sender listens on. `cert_fingerprint` is optional
+ * and currently unused (TLS isn't shipped yet): it is serialized only when
+ * the sender provides it.
  */
 export function buildHeartbeat(payload: HeartbeatPayload): string {
   // Discriminator last so a runtime payload can never override the wire type.

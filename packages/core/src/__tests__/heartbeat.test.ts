@@ -135,6 +135,38 @@ describe("parseHeartbeat", () => {
       parseHeartbeat(JSON.stringify({ ...payload, port: 53_350.5 })),
     ).toThrow(/port/);
   });
+
+  it("rejects malformed IPv4 and IPv6 addresses", () => {
+    expect(() =>
+      parseHeartbeat(
+        JSON.stringify({
+          ...payload,
+          interfaces: [{ type: "Wi-Fi", ipv4: ["not-an-ip"], ipv6: [], preferred: true }],
+        }),
+      ),
+    ).toThrow(/ipv4/);
+
+    expect(() =>
+      parseHeartbeat(
+        JSON.stringify({
+          ...payload,
+          interfaces: [{ type: "Wi-Fi", ipv4: [], ipv6: ["999.1.1.1"], preferred: true }],
+        }),
+      ),
+    ).toThrow(/ipv6/);
+  });
+
+  it("accepts valid link-local and global IPv6 addresses", () => {
+    const result = parseHeartbeat(
+      buildHeartbeat({
+        ...payload,
+        interfaces: [
+          { type: "Ethernet", ipv4: [], ipv6: ["fe80::1", "2001:db8:85a3::8a2e:370:7334"], preferred: true },
+        ],
+      }),
+    );
+    expect(result.interfaces[0]?.ipv6).toEqual(["fe80::1", "2001:db8:85a3::8a2e:370:7334"]);
+  });
 });
 
 describe("missedHeartbeats / isHeartbeatStale", () => {
