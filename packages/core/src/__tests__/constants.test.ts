@@ -1,17 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   DESKTOP_BUFFER_LIMIT,
-  TRANSFER_PORT_START,
   MOBILE_BUFFER_LIMIT,
   HEARTBEAT_INTERVAL,
   CONNECTION_TIMEOUT,
-  TRANSFER_PORT_END,
   HEARTBEAT_TIMEOUT,
   TRANSFER_TIMEOUT,
-  TRANSFER_PORTS,
-  DISCOVERY_PORT,
   CHUNK_SIZE,
 } from "../constants";
+import { DISCOVERY_PORT, TRANSFER_PORT_START, TRANSFER_PORT_END, TRANSFER_PORTS } from "../protocol";
 
 describe("ports", () => {
   it("uses 53350 for UDP discovery", () => {
