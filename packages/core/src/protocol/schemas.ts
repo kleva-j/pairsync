@@ -1,6 +1,13 @@
 import { z } from "zod";
 
 import { MESSAGE_TYPES } from "./constants";
+import type {
+  ChunkRequest,
+  ChunkResponse,
+  PrepareRequest,
+  PrepareResponse,
+  ResumeRequest,
+} from "../types";
 
 /**
  * Wire message schemas (Phase 1, message schemas).
@@ -126,3 +133,96 @@ export const transferMessageSchema = z.discriminatedUnion("type", [
   chunkResponseSchema,
   resumeRequestSchema,
 ]);
+
+/** Parsed transfer message: the domain payload plus its wire discriminator. */
+export type TransferMessage = z.infer<typeof transferMessageSchema>;
+
+/** Standard base64 alphabet (RFC 4648) with `=` padding. */
+const BASE64_ALPHABET =
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+/**
+ * Base64-encodes bytes (the inverse of `chunkResponseSchema`'s transform)
+ * without relying on `btoa`, which React Native/Hermes historically lacked.
+ * Encodes 3 bytes → 4 chars; a trailing 1–2 bytes produce `=` padding.
+ */
+function bytesToBase64(bytes: Uint8Array): string {
+  // `charAt` (not indexing) so the alphabet lookup never yields undefined
+  // under noUncheckedIndexedAccess; indices are masked to 0–63.
+  const enc = (six: number): string => BASE64_ALPHABET.charAt(six);
+  let out = "";
+  let i = 0;
+  for (; i + 2 < bytes.length; i += 3) {
+    const n = (bytes[i]! << 16) | (bytes[i + 1]! << 8) | bytes[i + 2]!;
+    out +=
+      enc((n >> 18) & 63) +
+      enc((n >> 12) & 63) +
+      enc((n >> 6) & 63) +
+      enc(n & 63);
+  }
+  if (i + 1 === bytes.length) {
+    const n = bytes[i]! << 16;
+    out += `${enc((n >> 18) & 63) + enc((n >> 12) & 63)}==`;
+  } else if (i + 2 === bytes.length) {
+    const n = (bytes[i]! << 16) | (bytes[i + 1]! << 8);
+    out += `${enc((n >> 18) & 63) + enc((n >> 12) & 63) + enc((n >> 6) & 63)}=`;
+  }
+  return out;
+}
+
+/**
+ * Builders: serialize each typed message to wire JSON, adding its
+ * discriminator last (like {@link buildHeartbeat}) so a runtime payload can
+ * never override the wire type. The output round-trips through the matching
+ * schema / {@link transferMessageSchema}.
+ */
+
+/** Sender → receiver preparation request. */
+export function buildPrepareRequest(msg: PrepareRequest): string {
+  return JSON.stringify({ ...msg, type: MESSAGE_TYPES.PREPARE });
+}
+
+/** Receiver → sender preparation response. */
+export function buildPrepareResponse(msg: PrepareResponse): string {
+  return JSON.stringify({ ...msg, type: MESSAGE_TYPES.PREPARE_RESPONSE });
+}
+
+/** Receiver asks the sender for specific chunks (resume / retry). */
+export function buildChunkRequest(msg: ChunkRequest): string {
+  return JSON.stringify({ ...msg, type: MESSAGE_TYPES.CHUNK_REQUEST });
+}
+
+/** Sender → receiver chunk payload; `data` is base64 on the wire. */
+export function buildChunkResponse(msg: ChunkResponse): string {
+  const { data, ...rest } = msg;
+  return JSON.stringify({
+    ...rest,
+    data: bytesToBase64(data),
+    type: MESSAGE_TYPES.CHUNK_RESPONSE,
+  });
+}
+
+/** Resume handshake: the bitmap of chunks the receiver already has. */
+export function buildResumeRequest(msg: ResumeRequest): string {
+  return JSON.stringify({ ...msg, type: MESSAGE_TYPES.RESUME });
+}
+
+/**
+ * Serializes any parsed transfer message (schema output) back to wire JSON,
+ * dispatching on its discriminator. The one-call counterpart to
+ * {@link transferMessageSchema}.
+ */
+export function buildTransferMessage(msg: TransferMessage): string {
+  switch (msg.type) {
+    case MESSAGE_TYPES.PREPARE:
+      return buildPrepareRequest(msg);
+    case MESSAGE_TYPES.PREPARE_RESPONSE:
+      return buildPrepareResponse(msg);
+    case MESSAGE_TYPES.CHUNK_REQUEST:
+      return buildChunkRequest(msg);
+    case MESSAGE_TYPES.CHUNK_RESPONSE:
+      return buildChunkResponse(msg);
+    case MESSAGE_TYPES.RESUME:
+      return buildResumeRequest(msg);
+  }
+}

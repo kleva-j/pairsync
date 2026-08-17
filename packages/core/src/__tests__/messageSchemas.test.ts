@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MESSAGE_TYPES, PROTOCOL_VERSION } from "../protocol";
 import {
+  buildChunkRequest,
+  buildChunkResponse,
+  buildPrepareRequest,
+  buildPrepareResponse,
+  buildResumeRequest,
+  buildTransferMessage,
   chunkRequestSchema,
   chunkResponseSchema,
   prepareRequestSchema,
@@ -474,6 +480,120 @@ describe("transferMessageSchema", () => {
       port: 53_350,
     });
     expect(heartbeat.success).toBe(false);
+  });
+});
+
+describe("message builders", () => {
+  it("serializes a prepare request with the prepare discriminator", () => {
+    const wire = JSON.parse(buildPrepareRequest(validPrepare));
+    expect(wire.type).toBe(MESSAGE_TYPES.PREPARE);
+    const parsed = prepareRequestSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.file_name).toBe("notes.txt");
+      expect(parsed.data.total_chunks).toBe(4);
+    }
+  });
+
+  it("serializes a prepare response with the prepare_response discriminator", () => {
+    const wire = JSON.parse(
+      buildPrepareResponse({ ...validPrepareResponse, accepted: false, reason: "disk full" }),
+    );
+    expect(wire.type).toBe(MESSAGE_TYPES.PREPARE_RESPONSE);
+    const parsed = prepareResponseSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.reason).toBe("disk full");
+  });
+
+  it("serializes a chunk request with the chunk_request discriminator", () => {
+    const wire = JSON.parse(buildChunkRequest(validChunkRequest));
+    expect(wire.type).toBe(MESSAGE_TYPES.CHUNK_REQUEST);
+    const parsed = chunkRequestSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.chunk_indices).toEqual([0, 1, 2]);
+  });
+
+  it("serializes a chunk response with base64 data and the chunk_response discriminator", () => {
+    const wire = JSON.parse(buildChunkResponse(validChunkResponse));
+    expect(wire.type).toBe(MESSAGE_TYPES.CHUNK_RESPONSE);
+    expect(typeof wire.data).toBe("string");
+    const parsed = chunkResponseSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.data).toBeInstanceOf(Uint8Array);
+      expect(String.fromCharCode(...parsed.data.data)).toBe("hello");
+    }
+  });
+
+  it("serializes a resume request with the resume discriminator", () => {
+    const wire = JSON.parse(buildResumeRequest(validResume));
+    expect(wire.type).toBe(MESSAGE_TYPES.RESUME);
+    const parsed = resumeRequestSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.chunk_bitmap).toEqual([true, false, true, false]);
+  });
+
+  it("pins the wire discriminator even if the payload carries a type", () => {
+    const wire = JSON.parse(
+      buildPrepareRequest({ ...validPrepare, type: MESSAGE_TYPES.CHUNK_RESPONSE } as never),
+    );
+    expect(wire.type).toBe(MESSAGE_TYPES.PREPARE);
+    expect(prepareRequestSchema.safeParse(wire).success).toBe(true);
+  });
+
+  it("encodes large chunk payloads without argument overflow", () => {
+    const large = new Uint8Array(100_000); // exceeds the batching threshold
+    for (let i = 0; i < large.length; i++) large[i] = i % 256;
+    const wire = JSON.parse(buildChunkResponse({ ...validChunkResponse, data: large }));
+    const parsed = chunkResponseSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.data.length).toBe(100_000);
+  });
+
+  it("pins the RFC 4648 base64 wire format with known vectors", () => {
+    const cases: Array<[Uint8Array, string]> = [
+      [new Uint8Array([]), ""],
+      [new Uint8Array([102]), "Zg=="], // "f"
+      [new Uint8Array([102, 111]), "Zm8="], // "fo"
+      [new Uint8Array([104, 101, 108, 108, 111]), "aGVsbG8="], // "hello"
+      [new Uint8Array([1, 2, 3, 4, 5]), "AQIDBAU="],
+      [new Uint8Array([255, 254, 253, 252, 251, 250]), "//79/Pv6"],
+    ];
+    for (const [bytes, expected] of cases) {
+      const wire = JSON.parse(
+        buildChunkResponse({ ...validChunkResponse, data: bytes }),
+      );
+      expect(wire.data).toBe(expected);
+      const parsed = chunkResponseSchema.safeParse(wire);
+      expect(parsed.success).toBe(true);
+      if (parsed.success) {
+        expect(parsed.data.data).toEqual(bytes);
+      }
+    }
+  });
+
+  it("round-trips a zero-byte chunk payload", () => {
+    const wire = JSON.parse(
+      buildChunkResponse({ ...validChunkResponse, data: new Uint8Array(0) }),
+    );
+    expect(wire.data).toBe("");
+    const parsed = chunkResponseSchema.safeParse(wire);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.data.length).toBe(0);
+  });
+
+  it("buildTransferMessage dispatches every wire type", () => {
+    const inputs = [
+      { ...validPrepare, type: MESSAGE_TYPES.PREPARE },
+      { ...validPrepareResponse, type: MESSAGE_TYPES.PREPARE_RESPONSE },
+      { ...validChunkRequest, type: MESSAGE_TYPES.CHUNK_REQUEST },
+      { ...validChunkResponse, data: validChunkResponse.data, type: MESSAGE_TYPES.CHUNK_RESPONSE },
+      { ...validResume, type: MESSAGE_TYPES.RESUME },
+    ];
+    for (const input of inputs) {
+      const wire = JSON.parse(buildTransferMessage(input as never));
+      expect(transferMessageSchema.safeParse(wire).success).toBe(true);
+    }
   });
 });
 
