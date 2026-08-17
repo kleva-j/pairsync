@@ -12,6 +12,16 @@ import { MESSAGE_TYPES } from "./constants";
  */
 
 /**
+ * Canonical SHA-256 digest wire encoding: 64 lowercase hex characters (the
+ * same form used for `cert_fingerprint`, minus the colons). Shared by
+ * `file_hash`, every `chunk_hashes` item, and `chunkResponseSchema.hash` so
+ * corrupt digests are rejected at the schema boundary.
+ */
+const sha256DigestSchema = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/, "expected a 64-character lowercase hex SHA-256 digest");
+
+/**
  * Sender → receiver transfer preparation request. The manifest must be
  * self-consistent: `total_chunks` must equal the number of per-chunk hashes,
  * and a zero-byte file has zero chunks.
@@ -26,8 +36,8 @@ export const prepareRequestSchema = z
     chunk_size: z.number().int().min(1),
     total_chunks: z.number().int().min(0),
     hash_algorithm: z.literal("SHA-256"),
-    file_hash: z.string().min(1),
-    chunk_hashes: z.array(z.string().min(1)),
+    file_hash: sha256DigestSchema,
+    chunk_hashes: z.array(sha256DigestSchema),
     mime_type: z.string().optional(),
     timestamp: z.number().int().positive(),
   })
@@ -71,8 +81,25 @@ export const chunkResponseSchema = z.object({
   data: z
     .string()
     .base64()
-    .transform((base64) => Uint8Array.from(atob(base64), (char) => char.charCodeAt(0))),
-  hash: z.string().min(1),
+    .transform((base64, ctx) => {
+      if (typeof atob !== "function") {
+        ctx.addIssue({
+          code: "custom",
+          message: "base64 decoding is not supported in this runtime",
+        });
+        return z.NEVER;
+      }
+      try {
+        return Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+      } catch {
+        ctx.addIssue({
+          code: "custom",
+          message: "invalid base64 data",
+        });
+        return z.NEVER;
+      }
+    }),
+  hash: sha256DigestSchema,
 });
 
 /** Resume handshake: the bitmap of chunks the receiver already has. */

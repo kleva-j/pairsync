@@ -7,14 +7,14 @@
 PairSync provides:
 - **Zero Configuration**: No accounts, no cloud setups, works out-of-the-box on any local network
 - **High Performance**: Operates at ≥80% of physical local network bandwidth capacity
-- **End-to-End Security**: Local encryption (TLS 1.3) with Trust On First Use (TOFU)
+- **End-to-End Security**: Local encryption (TLS 1.3) with Trust On First Use (TOFU) — planned (Phase 4)
 - **True Cross-Platform**: Uniform experience across Mobile (iOS/Android) and Desktop (macOS/Windows/Linux)
 
 ## 🏗️ Architecture
 
 PairSync is built as a **Turborepo monorepo** with shared TypeScript packages and platform-specific applications:
 
-```
+```text
 pairsync/
 ├── apps/
 │   ├── web/         # Desktop web application (React + TanStack Router + Tauri)
@@ -28,7 +28,7 @@ pairsync/
 
 ## 🚀 Current Implementation Status
 
-### ✅ Completed (Phase 0 - Foundation) & 🚧 Mostly Complete (Phase 1 - Core Infrastructure)
+### ✅ Completed (Phase 0 - Foundation & Phase 1 - Core Infrastructure)
 
 **packages/core/** - Shared domain logic and protocols:
 - ✅ Shared types (device, transfer, protocol schemas)
@@ -36,9 +36,10 @@ pairsync/
 - ✅ Platform utilities for cross-platform compatibility
 - ✅ XState state machines for device, discovery, and transfer states
 - ✅ Protocol constants (version, ports, HTTP headers, message types)
+- ✅ Wire-message schemas (zod: prepare/chunk/resume + discriminated union)
 - ✅ Heartbeat protocol logic (datagram building/parsing, missed-heartbeat expiry)
 - ✅ Network interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority)
-- ✅ Comprehensive unit tests (103 passing tests)
+- ✅ Comprehensive unit tests (126 passing tests)
 
 **Build & Testing Infrastructure:**
 - ✅ Turborepo pipeline with dependency-aware task scheduling
@@ -46,9 +47,6 @@ pairsync/
 - ✅ Vitest unit testing for core packages
 - ✅ CI/CD pipeline with type checking, testing, and build validation
 - ✅ Desktop Tauri build configuration
-
-**Phase 1 still open:**
-- ⏳ Message schemas (zod) for prepare/chunk/resume wire messages
 
 ### 📋 Planned (Phases 2-5)
 
@@ -93,7 +91,7 @@ pairsync/
 
 ### Prerequisites
 
-- **Node.js** 22 (Vite 8 requires `^20.19.0 || >=22.12.0`; CI runs Node 22) 
+- **Node.js** `^20.19.0 || >=22.12.0` (required by Vite 8; CI runs Node 22) 
 - **pnpm** 11.x (package manager)
 - **Expo CLI** (for mobile development)
 - **Rust** and **Cargo** (for Tauri desktop builds)
@@ -148,7 +146,7 @@ The project uses a comprehensive testing strategy:
 - **Type Checking**: TypeScript strict mode with `tsc --noEmit`
 - **CI/CD**: GitHub Actions running on every PR (typecheck, JS unit tests, native jest tests, build, Tauri desktop build)
 
-Test coverage is currently focused on the core package with 103 passing unit tests covering types, constants, utilities, state machines, heartbeat/network logic, and interface selection.
+Test coverage is currently focused on the core package with 126 passing unit tests covering types, constants, utilities, protocol schemas, state machines, heartbeat/network logic, and interface selection.
 
 ## 📚 Documentation
 

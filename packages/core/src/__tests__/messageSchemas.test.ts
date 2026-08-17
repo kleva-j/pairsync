@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { MESSAGE_TYPES, PROTOCOL_VERSION } from "../protocol";
 import {
@@ -17,6 +17,15 @@ import type {
   ChunkRequest,
 } from "../types";
 
+const FILE_HASH =
+  "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const CHUNK_HASHES = [
+  "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3",
+  "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4",
+  "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5",
+];
+
 const validPrepare: PrepareRequest = {
   transfer_id: "t-1",
   file_id: "f-1",
@@ -25,8 +34,8 @@ const validPrepare: PrepareRequest = {
   chunk_size: 4 * 1024 * 1024,
   total_chunks: 4,
   hash_algorithm: "SHA-256",
-  file_hash: "abc123",
-  chunk_hashes: ["h1", "h2", "h3", "h4"],
+  file_hash: FILE_HASH,
+  chunk_hashes: CHUNK_HASHES,
   timestamp: 1_700_000_000_000,
 };
 
@@ -44,7 +53,7 @@ const validChunkResponse: ChunkResponse = {
   transfer_id: "t-1",
   chunk_index: 1,
   data: new Uint8Array([104, 101, 108, 108, 111]), // "hello"
-  hash: "abc123",
+  hash: FILE_HASH,
 };
 
 /** Base64-encodes bytes without Node-specific APIs (matches the schema's wire format). */
@@ -117,7 +126,38 @@ describe("prepareRequestSchema", () => {
       prepareRequestSchema.safeParse({
         ...validPrepare,
         type: MESSAGE_TYPES.PREPARE,
-        chunk_hashes: ["h1", 42], // non-string hash
+        chunk_hashes: [FILE_HASH, 42], // non-string hash
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects malformed SHA-256 digests (wrong length or non-hex)", () => {
+    expect(
+      prepareRequestSchema.safeParse({
+        ...validPrepare,
+        type: MESSAGE_TYPES.PREPARE,
+        file_hash: "abc123", // not 64 chars
+      }).success,
+    ).toBe(false);
+    expect(
+      prepareRequestSchema.safeParse({
+        ...validPrepare,
+        type: MESSAGE_TYPES.PREPARE,
+        chunk_hashes: ["deadbeef"], // too short, and count then mismatches too
+      }).success,
+    ).toBe(false);
+    expect(
+      prepareRequestSchema.safeParse({
+        ...validPrepare,
+        type: MESSAGE_TYPES.PREPARE,
+        file_hash: FILE_HASH.toUpperCase(), // uppercase hex is not canonical
+      }).success,
+    ).toBe(false);
+    expect(
+      prepareRequestSchema.safeParse({
+        ...validPrepare,
+        type: MESSAGE_TYPES.PREPARE,
+        file_hash: "z".repeat(64), // non-hex characters
       }).success,
     ).toBe(false);
   });
@@ -256,13 +296,41 @@ describe("chunkResponseSchema", () => {
       transfer_id: "t-1",
       chunk_index: 1,
       data: b64,
-      hash: "abc123",
+      hash: FILE_HASH,
       type: MESSAGE_TYPES.CHUNK_RESPONSE,
     });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.data).toBeInstanceOf(Uint8Array);
       expect(String.fromCharCode(...result.data.data)).toBe("hello");
+    }
+  });
+
+  it("rejects a malformed chunk hash digest", () => {
+    expect(
+      chunkResponseSchema.safeParse({
+        transfer_id: "t-1",
+        chunk_index: 1,
+        data: toBase64(validChunkResponse.data),
+        hash: "abc123",
+        type: MESSAGE_TYPES.CHUNK_RESPONSE,
+      }).success,
+    ).toBe(false);
+  });
+
+  it("fails validation (not throws) when base64 decoding is unavailable", () => {
+    vi.stubGlobal("atob", undefined);
+    try {
+      const result = chunkResponseSchema.safeParse({
+        transfer_id: "t-1",
+        chunk_index: 1,
+        data: toBase64(validChunkResponse.data),
+        hash: FILE_HASH,
+        type: MESSAGE_TYPES.CHUNK_RESPONSE,
+      });
+      expect(result.success).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
     }
   });
 
