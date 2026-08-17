@@ -59,12 +59,19 @@ export const transferMachine = setup({
       event.chunkIndex === context.chunksReceived &&
       event.chunkIndex === context.transfer.total_chunks - 1,
     /**
-     * A failed transfer may be resumed with a partial, in-range count up to
-     * MAX_RESUME_ATTEMPTS times.
+     * A transfer with zero chunks (e.g. an empty file) has nothing to
+     * stream — it goes straight to verification.
+     */
+    isZeroChunkTransfer: ({ context }) =>
+      context.transfer !== null && context.transfer.total_chunks === 0,
+    /**
+     * A failed transfer may be resumed with a partial, in-range integer
+     * count up to MAX_RESUME_ATTEMPTS times.
      */
     canResume: ({ context, event }) =>
       context.transfer !== null &&
       event.type === "RESUME" &&
+      Number.isInteger(event.chunksReceived) &&
       event.chunksReceived >= 0 &&
       event.chunksReceived < context.transfer.total_chunks &&
       context.resumeAttempts < MAX_RESUME_ATTEMPTS,
@@ -75,6 +82,7 @@ export const transferMachine = setup({
     resumeCompletes: ({ context, event }) =>
       context.transfer !== null &&
       event.type === "RESUME" &&
+      Number.isInteger(event.chunksReceived) &&
       event.chunksReceived === context.transfer.total_chunks &&
       context.resumeAttempts < MAX_RESUME_ATTEMPTS,
   },
@@ -111,7 +119,10 @@ export const transferMachine = setup({
     preparing: {
       on: {
         START: { target: "preparing", actions: "startTransfer" },
-        PREPARED: { target: "transferring", guard: "hasTransfer" },
+        PREPARED: [
+          { target: "verifying", guard: "isZeroChunkTransfer" },
+          { target: "transferring", guard: "hasTransfer" },
+        ],
         PREPARE_REJECTED: { target: "error", guard: "hasTransfer", actions: "setError" },
         CANCEL: { target: "cancelled" },
       },

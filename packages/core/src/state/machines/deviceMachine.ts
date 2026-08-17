@@ -38,13 +38,14 @@ export const deviceMachine = setup({
   guards: {
     /**
      * A device is connectable when it advertises a transfer port and at
-     * least one usable network interface.
+     * least one interface carrying an actual IP address. A `preferred` flag
+     * alone is not a reachable endpoint.
      */
     canConnect: ({ event }) =>
       event.type === "CONNECT" &&
       event.device.port > 0 &&
       event.device.interfaces.some(
-        (iface) => iface.preferred || iface.ipv4.length > 0 || iface.ipv6.length > 0,
+        (iface) => iface.ipv4.length > 0 || iface.ipv6.length > 0,
       ),
     /** Retries are allowed up to MAX_CONNECT_ATTEMPTS. */
     canRetry: ({ context }) => context.connectAttempts < MAX_CONNECT_ATTEMPTS,

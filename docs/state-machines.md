@@ -55,7 +55,7 @@ stateDiagram-v2
 
 | Guard        | Passes when                                                        |
 | ------------ | ------------------------------------------------------------------ |
-| `canConnect` | Device has `port > 0` and at least one interface with an IP or `preferred`. |
+| `canConnect` | Device has `port > 0` and at least one interface carrying an IP address (`ipv4` or `ipv6`). A `preferred` flag alone is not an endpoint. |
 | `canRetry`   | `connectAttempts < MAX_CONNECT_ATTEMPTS` (initial connect counts as attempt 1). |
 
 ### Context
@@ -118,6 +118,7 @@ failed transfers.
 stateDiagram-v2
     [*] --> PREPARING
     PREPARING --> PREPARING: START { transfer }
+    PREPARING --> VERIFYING: PREPARED [isZeroChunkTransfer]
     PREPARING --> TRANSFERRING: PREPARED [hasTransfer]
     PREPARING --> ERROR: PREPARE_REJECTED [hasTransfer]
     PREPARING --> CANCELLED: CANCEL
@@ -144,7 +145,7 @@ stateDiagram-v2
 | `TRANSFERRING`| Streaming chunks; bounded by `TRANSFER_TIMEOUT`.              |
 | `VERIFYING`   | Hash verification of the assembled payload.                   |
 | `COMPLETE`    | Final — verified and done.                                    |
-| `ERROR`       | Terminal failure; resumable up to `MAX_RESUME_ATTEMPTS`.      |
+| `ERROR`       | Resumable failure; a resume is allowed up to `MAX_RESUME_ATTEMPTS`, otherwise `CANCEL` exits. |
 | `CANCELLED`   | Final — user or system cancelled.                             |
 
 ### Events
@@ -161,8 +162,9 @@ stateDiagram-v2
 | `hasTransfer`      | A `START` has been received (`context.transfer !== null`).           |
 | `isNextChunk`      | The event's chunk is the next contiguous index (`chunkIndex === chunksReceived`) and in range (`< total_chunks`). |
 | `allChunksReceived`| The contiguous final chunk (`chunkIndex === total_chunks - 1`) arrived. |
-| `canResume`        | Resume count in `[0, total_chunks)` and `resumeAttempts < MAX_RESUME_ATTEMPTS` (2-resume cap). |
-| `resumeCompletes`  | Resume count `=== total_chunks` and `resumeAttempts < MAX_RESUME_ATTEMPTS` — straight to verifying. |
+| `canResume`        | Resume count is an integer in `[0, total_chunks)` and `resumeAttempts < MAX_RESUME_ATTEMPTS` (2-resume cap). |
+| `resumeCompletes`  | Resume count is the integer `total_chunks` and `resumeAttempts < MAX_RESUME_ATTEMPTS` — straight to verifying. |
+| `isZeroChunkTransfer` | The manifest has `total_chunks === 0` — nothing to stream, verify immediately. |
 
 ### Context
 
@@ -176,8 +178,8 @@ stateDiagram-v2
 - **Chunk progress is strictly contiguous.** `CHUNK_RECEIVED` only advances
   progress when the event's index equals `chunksReceived` and is in range —
   sparse, duplicate, negative, or out-of-range events are ignored, so an
-  incomplete transfer can never be marked complete. Resume counts are
-  bounds-checked the same way.
+  incomplete transfer can never be marked complete. Resume counts must be
+  integers and are bounds-checked the same way.
 - **Timeouts are declarative.** `CONNECTION_TIMEOUT` (device) and
   `TRANSFER_TIMEOUT` (transfer) use XState `after` delays, so no timer
   bookkeeping leaks into actors.

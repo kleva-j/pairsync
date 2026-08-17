@@ -161,6 +161,29 @@ describe("transfer machine", () => {
     expect(actor.getSnapshot().context.resumeAttempts).toBe(1);
   });
 
+  it("ignores fractional RESUME counts", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    actor.send({ type: "CHUNK_FAILED", reason: "disconnect" });
+    expect(actor.getSnapshot().value).toBe("error");
+
+    actor.send({ type: "RESUME", chunksReceived: 1.5 });
+    expect(actor.getSnapshot().value).toBe("error");
+    expect(actor.getSnapshot().context.chunksReceived).toBe(0);
+    expect(actor.getSnapshot().context.resumeAttempts).toBe(0);
+  });
+
+  it("routes zero-chunk transfers straight to verification", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer: { ...transfer, total_chunks: 0 } });
+    actor.send({ type: "PREPARED" });
+    expect(actor.getSnapshot().value).toBe("verifying");
+
+    actor.send({ type: "VERIFY_OK" });
+    expect(actor.getSnapshot().value).toBe("complete");
+  });
+
   it("times out while transferring", () => {
     vi.useFakeTimers();
     try {

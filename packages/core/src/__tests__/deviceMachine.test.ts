@@ -47,6 +47,26 @@ describe("device machine", () => {
     expect(actor.getSnapshot().value).toBe("discovered");
   });
 
+  it("refuses to connect when the only interface is preferred but addressless", () => {
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({
+      type: "DEVICE_DISCOVERED",
+      device: {
+        ...device,
+        interfaces: [{ type: "Wi-Fi", ipv4: [], ipv6: [], preferred: true }],
+      },
+    });
+    actor.send({
+      type: "CONNECT",
+      device: {
+        ...device,
+        interfaces: [{ type: "Wi-Fi", ipv4: [], ipv6: [], preferred: true }],
+      },
+    });
+    expect(actor.getSnapshot().value).toBe("discovered");
+  });
+
   it("goes to error on CONNECT_FAILED and can retry up to MAX_CONNECT_ATTEMPTS", () => {
     const actor = createActor(deviceMachine).start();
     actor.send({ type: "START_SCAN" });
