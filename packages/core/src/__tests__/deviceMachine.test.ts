@@ -112,6 +112,78 @@ describe("device machine", () => {
       vi.useRealTimers();
     }
   });
+
+  it("returns to scanning when a discovered device is lost", () => {
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({ type: "DEVICE_DISCOVERED", device });
+    expect(actor.getSnapshot().value).toBe("discovered");
+
+    actor.send({ type: "DEVICE_LOST" });
+    expect(actor.getSnapshot().value).toBe("scanning");
+    expect(actor.getSnapshot().context.device).toBeNull();
+  });
+
+  it("returns to idle when lost before any device is discovered", () => {
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    expect(actor.getSnapshot().value).toBe("scanning");
+
+    actor.send({ type: "DEVICE_LOST" });
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(actor.getSnapshot().context.device).toBeNull();
+  });
+
+  it("moves to error when the connection drops while connected", () => {
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({ type: "DEVICE_DISCOVERED", device });
+    actor.send({ type: "CONNECT", device });
+    actor.send({ type: "CONNECTED" });
+    expect(actor.getSnapshot().value).toBe("connected");
+
+    actor.send({ type: "CONNECT_FAILED", reason: "link dropped" });
+    expect(actor.getSnapshot().value).toBe("error");
+    expect(actor.getSnapshot().context.lastError).toBe("link dropped");
+  });
+
+  it("refuses to connect when the device advertises no transfer port", () => {
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({ type: "DEVICE_DISCOVERED", device: { ...device, port: 0 } });
+    actor.send({ type: "CONNECT", device: { ...device, port: 0 } });
+    expect(actor.getSnapshot().value).toBe("discovered");
+  });
+
+  it("connects to a device whose only address is IPv6", () => {
+    const ipv6Device: Device = {
+      ...device,
+      interfaces: [{ type: "Wi-Fi", ipv4: [], ipv6: ["fe80::1"], preferred: true }],
+    };
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({ type: "DEVICE_DISCOVERED", device: ipv6Device });
+    actor.send({ type: "CONNECT", device: ipv6Device });
+    expect(actor.getSnapshot().value).toBe("connecting");
+  });
+
+  it("tracks and resets connectAttempts across the lifecycle", () => {
+    const actor = createActor(deviceMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({ type: "DEVICE_DISCOVERED", device });
+    expect(actor.getSnapshot().context.connectAttempts).toBe(0);
+
+    actor.send({ type: "CONNECT", device });
+    expect(actor.getSnapshot().context.connectAttempts).toBe(1);
+
+    actor.send({ type: "CONNECT_FAILED", reason: "refused" });
+    actor.send({ type: "RETRY" });
+    expect(actor.getSnapshot().context.connectAttempts).toBe(2);
+
+    actor.send({ type: "CONNECTED" });
+    expect(actor.getSnapshot().context.connectAttempts).toBe(0);
+    expect(actor.getSnapshot().context.lastError).toBeNull();
+  });
 });
 
 beforeEach(() => {

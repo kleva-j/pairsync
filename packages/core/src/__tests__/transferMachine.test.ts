@@ -197,6 +197,74 @@ describe("transfer machine", () => {
       vi.useRealTimers();
     }
   });
+
+  it("cancels from preparing and from error", () => {
+    const preparing = createActor(transferMachine).start();
+    preparing.send({ type: "START", transfer });
+    preparing.send({ type: "CANCEL" });
+    expect(preparing.getSnapshot().value).toBe("cancelled");
+
+    const errored = createActor(transferMachine).start();
+    errored.send({ type: "START", transfer });
+    errored.send({ type: "PREPARED" });
+    errored.send({ type: "CHUNK_FAILED", reason: "socket reset" });
+    expect(errored.getSnapshot().value).toBe("error");
+    errored.send({ type: "CANCEL" });
+    expect(errored.getSnapshot().value).toBe("cancelled");
+  });
+
+  it("ignores a fresh START once the transfer is in flight", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: 0 });
+    expect(actor.getSnapshot().context.chunksReceived).toBe(1);
+
+    // START is only legal in preparing — a mid-transfer manifest must not
+    // silently replace the in-flight one.
+    actor.send({ type: "START", transfer: { ...transfer, file_id: "f-2" } });
+    expect(actor.getSnapshot().context.transfer?.file_id).toBe("f-1");
+    expect(actor.getSnapshot().context.chunksReceived).toBe(1);
+  });
+
+  it("clears the transfer timeout when leaving the transferring state", () => {
+    vi.useFakeTimers();
+    try {
+      const actor = createActor(transferMachine).start();
+      actor.send({ type: "START", transfer });
+      actor.send({ type: "PREPARED" });
+      // All chunks arrive, moving into verifying (a non-final state). If the
+      // after-delay were still armed, advancing past TRANSFER_TIMEOUT would
+      // fire the timeout; it must not.
+      for (let i = 0; i < transfer.total_chunks; i++) {
+        actor.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+      }
+      expect(actor.getSnapshot().value).toBe("verifying");
+
+      vi.advanceTimersByTime(TRANSFER_TIMEOUT * 2);
+      expect(actor.getSnapshot().value).toBe("verifying");
+      expect(actor.getSnapshot().context.lastError).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("ignores chunk events before START, and completion terminates the actor", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: 0 });
+    expect(actor.getSnapshot().value).toBe("preparing");
+    expect(actor.getSnapshot().context.chunksReceived).toBe(0);
+
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    for (let i = 0; i < transfer.total_chunks; i++) {
+      actor.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+    }
+    actor.send({ type: "VERIFY_OK" });
+    expect(actor.getSnapshot().value).toBe("complete");
+    // Final states have no outgoing transitions — the actor is done.
+    expect(actor.getSnapshot().status).toBe("done");
+  });
 });
 
 beforeEach(() => {
