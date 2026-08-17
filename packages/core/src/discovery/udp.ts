@@ -37,8 +37,14 @@ export const MULTICAST_GROUPS = Object.freeze({
 /**
  * Platform socket contract. Implemented by each app's adapter; the engine
  * only depends on this interface. `data` is a UTF-8 encoded heartbeat JSON
- * payload. Adapters should join the multicast groups with the platform's
- * scoped interface where one is required (e.g. IPv6 link-local).
+ * payload.
+ *
+ * Adapters own IPv6 link-local scoping: `ff02::1` is zone-scoped, so on
+ * hosts with multiple interfaces the adapter must join per-interface (the
+ * optional `iface` parameter exists for exactly this). The engine cannot
+ * pick an interface — that's the platform interface-detector concern
+ * (`network/interfaces.ts`) — so it always joins without a scope and
+ * relies on the adapter.
  */
 export interface MulticastSocket {
   /** Registers the inbound-datagram handler (called by the adapter). */
@@ -104,6 +110,10 @@ export class MulticastDiscovery {
 
   private timer: unknown = null;
   private started = false;
+  /** In-flight start, so concurrent calls share one lifecycle run. */
+  private startPromise: Promise<void> | null = null;
+  /** In-flight stop, so concurrent calls share one cleanup run. */
+  private stopPromise: Promise<void> | null = null;
 
   constructor(options: MulticastDiscoveryOptions) {
     this.socket = options.socket;
@@ -120,40 +130,58 @@ export class MulticastDiscovery {
 
   /** Joins the multicast groups and starts the heartbeat cadence. */
   async start(): Promise<void> {
+    if (this.startPromise) return this.startPromise;
     if (this.started) return;
     this.started = true;
-    for (const group of this.groups) {
-      try {
-        await this.socket.joinGroup(group.address);
-      } catch (error) {
-        this.reportError(error);
+    const run = (async () => {
+      for (const group of this.groups) {
+        try {
+          await this.socket.joinGroup(group.address);
+        } catch (error) {
+          this.reportError(error);
+        }
       }
-    }
-    // Announce immediately, then on the interval. The callback returns the
-    // send promise so schedulers (e.g. tests) can await a completed tick.
-    await this.sendHeartbeat();
-    this.timer = this.scheduler.setInterval(
-      () => this.sendHeartbeat(),
-      this.intervalMs,
-    );
+      // Announce immediately, then on the interval. The callback returns the
+      // send promise so schedulers (e.g. tests) can await a completed tick.
+      await this.sendHeartbeat();
+      // stop() may have run while we were joining; never arm a timer for a
+      // stopped engine (that would leak a 5s send loop on a closed socket).
+      if (this.started) {
+        this.timer = this.scheduler.setInterval(
+          () => this.sendHeartbeat(),
+          this.intervalMs,
+        );
+      }
+    })();
+    this.startPromise = run.finally(() => {
+      this.startPromise = null;
+    });
+    return this.startPromise;
   }
 
   /** Stops the cadence, leaves the groups, and releases the socket. */
   async stop(): Promise<void> {
+    if (this.stopPromise) return this.stopPromise;
     if (!this.started) return;
     this.started = false;
-    if (this.timer !== null) {
-      this.scheduler.clearInterval(this.timer);
-      this.timer = null;
-    }
-    for (const group of this.groups) {
-      try {
-        await this.socket.leaveGroup(group.address);
-      } catch (error) {
-        this.reportError(error);
+    const run = (async () => {
+      if (this.timer !== null) {
+        this.scheduler.clearInterval(this.timer);
+        this.timer = null;
       }
-    }
-    await this.socket.close();
+      for (const group of this.groups) {
+        try {
+          await this.socket.leaveGroup(group.address);
+        } catch (error) {
+          this.reportError(error);
+        }
+      }
+      await this.socket.close();
+    })();
+    this.stopPromise = run.finally(() => {
+      this.stopPromise = null;
+    });
+    return this.stopPromise;
   }
 
   /** Sends one heartbeat to every configured group. */

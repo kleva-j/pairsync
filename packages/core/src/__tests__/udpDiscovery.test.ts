@@ -14,6 +14,8 @@ class FakeSocket implements MulticastSocket {
   closed = false;
   failNextSend = false;
   failGroup?: string;
+  /** When set, joinGroup awaits this promise first (to hold start() mid-flight). */
+  joinPending?: Promise<void>;
 
   private handler?: (data: Uint8Array, remote: { address: string; port: number }) => void;
 
@@ -22,6 +24,7 @@ class FakeSocket implements MulticastSocket {
   }
 
   async send(data: Uint8Array, port: number, address: string): Promise<void> {
+    this.closed = false; // a real adapter re-binds lazily after close
     if (this.failNextSend) {
       this.failNextSend = false;
       throw new Error("send failed");
@@ -30,6 +33,8 @@ class FakeSocket implements MulticastSocket {
   }
 
   async joinGroup(group: string): Promise<void> {
+    if (this.joinPending) await this.joinPending;
+    this.closed = false; // a real adapter re-binds lazily after close
     if (this.failGroup === group) throw new Error(`join ${group} failed`);
     this.joined.push(group);
   }
@@ -239,5 +244,51 @@ describe("MulticastDiscovery", () => {
     expect(socket.closed).toBe(true);
     await scheduler.tick();
     expect(socket.messages.length).toBe(2); // no sends after stop
+  });
+
+  it("concurrent start() calls join once and arm a single timer", async () => {
+    const { socket, scheduler, discovery } = setup();
+    await Promise.all([discovery.start(), discovery.start()]);
+    expect(socket.joined).toEqual(["224.0.0.1", "ff02::1"]);
+    expect(scheduler.pending).toBe(1);
+    expect(socket.messages.length).toBe(2);
+    await discovery.stop();
+  });
+
+  it("concurrent stop() calls clean up exactly once", async () => {
+    const { socket, scheduler, discovery } = setup();
+    await discovery.start();
+    await Promise.all([discovery.stop(), discovery.stop()]);
+    expect(socket.left).toEqual(["224.0.0.1", "ff02::1"]);
+    expect(socket.closed).toBe(true);
+    expect(scheduler.pending).toBe(0);
+  });
+
+  it("stop() during an in-flight start() leaves no timer behind", async () => {
+    const { socket, scheduler, discovery } = setup();
+    let release!: () => void;
+    socket.joinPending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const startPromise = discovery.start(); // blocked joining the groups
+    await discovery.stop(); // interrupts start before it finishes
+    release();
+    await startPromise;
+    expect(scheduler.pending).toBe(0); // no leaked 5s timer
+    expect(socket.left).toEqual(["224.0.0.1", "ff02::1"]); // cleanup ran
+    await scheduler.tick();
+    // Only the one interrupted announce fired; nothing periodic follows.
+    expect(socket.messages.length).toBe(2);
+  });
+
+  it("can be restarted after a stop", async () => {
+    const { socket, scheduler, discovery } = setup();
+    await discovery.start();
+    await discovery.stop();
+    await discovery.start();
+    expect(socket.joined).toEqual(["224.0.0.1", "ff02::1", "224.0.0.1", "ff02::1"]);
+    expect(scheduler.pending).toBe(1);
+    expect(socket.closed).toBe(false);
+    await discovery.stop();
   });
 });
