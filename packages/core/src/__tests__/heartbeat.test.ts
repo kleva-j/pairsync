@@ -58,6 +58,12 @@ describe("buildHeartbeat", () => {
       ...payload,
     });
   });
+
+  it("never lets a rogue payload type override the heartbeat discriminator", () => {
+    const rogue = { ...payload, type: "prepare" } as HeartbeatPayload & { type: string };
+    const wire = JSON.parse(buildHeartbeat(rogue)) as { type: string };
+    expect(wire.type).toBe(MESSAGE_TYPES.HEARTBEAT);
+  });
 });
 
 describe("parseHeartbeat", () => {
@@ -156,6 +162,19 @@ describe("missedHeartbeats / isHeartbeatStale", () => {
     expect(missedHeartbeats(t0, t0 + 30_000, 10_000)).toBe(3);
     expect(isHeartbeatStale(t0, t0 + 9_999, 10_000)).toBe(false);
     expect(isHeartbeatStale(t0, t0 + 10_000, 10_000)).toBe(true);
+  });
+
+  it("rejects non-positive or non-finite interval and timeout", () => {
+    expect(() => missedHeartbeats(t0, t0 + 10_000, 0)).toThrow(RangeError);
+    expect(() => missedHeartbeats(t0, t0 + 10_000, -5_000)).toThrow(RangeError);
+    expect(() => isHeartbeatStale(t0, t0 + 10_000, 0)).toThrow(RangeError);
+    expect(() => isHeartbeatStale(t0, t0 + 10_000, Number.NaN)).toThrow(RangeError);
+  });
+
+  it("rejects non-positive timeout and interval in the tracker constructor", () => {
+    expect(() => new HeartbeatTracker({ timeout: 0 })).toThrow(RangeError);
+    expect(() => new HeartbeatTracker({ interval: -1 })).toThrow(RangeError);
+    expect(() => new HeartbeatTracker({ timeout: Number.POSITIVE_INFINITY })).toThrow(RangeError);
   });
 
   it("derives the 5-missed-heartbeats = 25s invariant from constants", () => {

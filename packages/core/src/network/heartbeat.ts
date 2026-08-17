@@ -9,10 +9,11 @@ import type { HeartbeatPayload } from "../types";
  *
  * Devices announce presence over UDP with a heartbeat JSON payload every
  * `HEARTBEAT_INTERVAL`; receivers drop devices that go silent for
- * `HEARTBEAT_TIMEOUT` (5 missed heartbeats × 5s). The expiry logic is
- * timestamp-based and never touches platform timers directly — the discovery
- * actor feeds `now` (from whichever timer primitive the platform provides),
- * so this module works identically on iOS, Android, and desktop.
+ * `HEARTBEAT_TIMEOUT` (`MISSED_HEARTBEATS_LIMIT` missed × `HEARTBEAT_INTERVAL`).
+ * The expiry logic is timestamp-based and never touches platform timers
+ * directly — the discovery actor feeds `now` (from whichever timer primitive
+ * the platform provides), so this module works identically on iOS, Android,
+ * and desktop.
  */
 
 /** Wire format: the heartbeat payload plus its message-type discriminator. */
@@ -44,6 +45,13 @@ export class HeartbeatParseError extends Error {
   }
 }
 
+/** Guards expiry/missed-count arithmetic against nonsensical inputs. */
+function assertPositiveDuration(name: string, value: number): void {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new RangeError(`${name} must be a positive finite number, got ${value}`);
+  }
+}
+
 function describeZodIssues(error: z.ZodError): string {
   return error.issues
     .map((issue) => {
@@ -59,7 +67,8 @@ function describeZodIssues(error: z.ZodError): string {
  * until TLS ships.
  */
 export function buildHeartbeat(payload: HeartbeatPayload): string {
-  return JSON.stringify({ type: MESSAGE_TYPES.HEARTBEAT, ...payload });
+  // Discriminator last so a runtime payload can never override the wire type.
+  return JSON.stringify({ ...payload, type: MESSAGE_TYPES.HEARTBEAT });
 }
 
 /** Parses and validates a received heartbeat datagram. */
@@ -87,6 +96,7 @@ export function missedHeartbeats(
   now: number,
   interval: number = HEARTBEAT_INTERVAL,
 ): number {
+  assertPositiveDuration("interval", interval);
   const elapsed = now - lastSeenAt;
   return elapsed <= 0 ? 0 : Math.floor(elapsed / interval);
 }
@@ -97,6 +107,7 @@ export function isHeartbeatStale(
   now: number,
   timeout: number = HEARTBEAT_TIMEOUT,
 ): boolean {
+  assertPositiveDuration("timeout", timeout);
   return now - lastSeenAt >= timeout;
 }
 
@@ -125,6 +136,8 @@ export class HeartbeatTracker {
   constructor(options: HeartbeatTrackerOptions = {}) {
     this.timeout = options.timeout ?? HEARTBEAT_TIMEOUT;
     this.interval = options.interval ?? HEARTBEAT_INTERVAL;
+    assertPositiveDuration("timeout", this.timeout);
+    assertPositiveDuration("interval", this.interval);
     this.now = options.now ?? (() => Date.now());
   }
 
@@ -149,7 +162,7 @@ export class HeartbeatTracker {
     return lastSeen === undefined ? undefined : missedHeartbeats(lastSeen, this.now(), this.interval);
   }
 
-  /** True when the device has missed more than `MISSED_HEARTBEATS_LIMIT` heartbeats. */
+  /** True when the device has been silent for at least the configured `timeout`. */
   isExpired(deviceId: string): boolean {
     const lastSeen = this.seen.get(deviceId);
     return lastSeen !== undefined && isHeartbeatStale(lastSeen, this.now(), this.timeout);
