@@ -22,6 +22,7 @@ import type {
   ResumeRequest,
   ChunkRequest,
 } from "../types";
+import type { TransferMessage } from "../protocol";
 
 const FILE_HASH =
   "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -534,9 +535,12 @@ describe("message builders", () => {
   });
 
   it("pins the wire discriminator even if the payload carries a type", () => {
-    const wire = JSON.parse(
-      buildPrepareRequest({ ...validPrepare, type: MESSAGE_TYPES.CHUNK_RESPONSE } as never),
-    );
+    // Deliberate escape hatch: smuggle a bogus `type` into a PrepareRequest.
+    const smuggled = {
+      ...validPrepare,
+      type: MESSAGE_TYPES.CHUNK_RESPONSE,
+    } as unknown as PrepareRequest;
+    const wire = JSON.parse(buildPrepareRequest(smuggled));
     expect(wire.type).toBe(MESSAGE_TYPES.PREPARE);
     expect(prepareRequestSchema.safeParse(wire).success).toBe(true);
   });
@@ -583,17 +587,27 @@ describe("message builders", () => {
   });
 
   it("buildTransferMessage dispatches every wire type", () => {
-    const inputs = [
+    const inputs: TransferMessage[] = [
       { ...validPrepare, type: MESSAGE_TYPES.PREPARE },
       { ...validPrepareResponse, type: MESSAGE_TYPES.PREPARE_RESPONSE },
       { ...validChunkRequest, type: MESSAGE_TYPES.CHUNK_REQUEST },
-      { ...validChunkResponse, data: validChunkResponse.data, type: MESSAGE_TYPES.CHUNK_RESPONSE },
+      {
+        ...validChunkResponse,
+        data: new Uint8Array(validChunkResponse.data),
+        type: MESSAGE_TYPES.CHUNK_RESPONSE,
+      },
       { ...validResume, type: MESSAGE_TYPES.RESUME },
     ];
     for (const input of inputs) {
-      const wire = JSON.parse(buildTransferMessage(input as never));
+      const wire = JSON.parse(buildTransferMessage(input));
       expect(transferMessageSchema.safeParse(wire).success).toBe(true);
     }
+  });
+
+  it("buildTransferMessage throws on an unknown discriminator", () => {
+    expect(() =>
+      buildTransferMessage({ ...validPrepare, type: "teleport" } as unknown as TransferMessage),
+    ).toThrow(/unknown message type/);
   });
 });
 

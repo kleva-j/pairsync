@@ -148,26 +148,38 @@ const BASE64_ALPHABET =
  */
 function bytesToBase64(bytes: Uint8Array): string {
   // `charAt` (not indexing) so the alphabet lookup never yields undefined
-  // under noUncheckedIndexedAccess; indices are masked to 0–63.
+  // under noUncheckedIndexedAccess; indices are masked to 0–63. Groups are
+  // accumulated into a buffer flushed every 32 KiB and joined once, so a
+  // 4 MiB chunk never builds one giant string via repeated `+=` (which is
+  // quadratic on engines without rope strings, e.g. Hermes).
   const enc = (six: number): string => BASE64_ALPHABET.charAt(six);
-  let out = "";
+  const parts: string[] = [];
+  let buf = "";
   let i = 0;
+  const flush = (): void => {
+    if (buf.length > 0) {
+      parts.push(buf);
+      buf = "";
+    }
+  };
   for (; i + 2 < bytes.length; i += 3) {
     const n = (bytes[i]! << 16) | (bytes[i + 1]! << 8) | bytes[i + 2]!;
-    out +=
+    buf +=
       enc((n >> 18) & 63) +
       enc((n >> 12) & 63) +
       enc((n >> 6) & 63) +
       enc(n & 63);
+    if (buf.length >= 0x8000) flush();
   }
   if (i + 1 === bytes.length) {
     const n = bytes[i]! << 16;
-    out += `${enc((n >> 18) & 63) + enc((n >> 12) & 63)}==`;
+    buf += `${enc((n >> 18) & 63) + enc((n >> 12) & 63)}==`;
   } else if (i + 2 === bytes.length) {
     const n = (bytes[i]! << 16) | (bytes[i + 1]! << 8);
-    out += `${enc((n >> 18) & 63) + enc((n >> 12) & 63) + enc((n >> 6) & 63)}=`;
+    buf += `${enc((n >> 18) & 63) + enc((n >> 12) & 63) + enc((n >> 6) & 63)}=`;
   }
-  return out;
+  flush();
+  return parts.join("");
 }
 
 /**
@@ -224,5 +236,12 @@ export function buildTransferMessage(msg: TransferMessage): string {
       return buildChunkResponse(msg);
     case MESSAGE_TYPES.RESUME:
       return buildResumeRequest(msg);
+    default:
+      // Unreachable for schema-typed input; guards JS callers passing a value
+      // whose `type` isn't a known discriminator (the switch would otherwise
+      // fall through and return undefined despite the declared return type).
+      throw new Error(
+        `buildTransferMessage: unknown message type ${String((msg as { type?: unknown }).type)}`,
+      );
   }
 }

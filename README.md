@@ -36,7 +36,7 @@ pairsync/
 - ✅ Platform utilities for cross-platform compatibility
 - ✅ XState state machines for device, discovery, and transfer states
 - ✅ Protocol constants (version, ports, HTTP headers, message types)
-- ✅ Wire-message schemas (zod: prepare/chunk/resume + discriminated union)
+- ✅ Wire-message schemas + builders (zod: prepare/chunk/resume + discriminated union)
 - ✅ Heartbeat protocol logic (datagram building/parsing, missed-heartbeat expiry)
 - ✅ Network interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority)
 - ✅ Comprehensive unit tests (137 passing tests)
@@ -146,7 +146,7 @@ The project uses a comprehensive testing strategy:
 - **Type Checking**: TypeScript strict mode with `tsc --noEmit`
 - **CI/CD**: GitHub Actions running on every PR (typecheck, JS unit tests, native jest tests, build, Tauri desktop build)
 
-Test coverage is currently focused on the core package with 137 passing unit tests covering types, constants, utilities, protocol schemas, state machines, heartbeat/network logic, and interface selection.
+Test coverage is currently focused on the core package with 138 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, heartbeat/network logic, and interface selection.
 
 ## 📚 Documentation
 
