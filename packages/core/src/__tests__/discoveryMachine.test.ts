@@ -67,4 +67,43 @@ describe("discovery machine", () => {
     expect(actor.getSnapshot().value).toBe("scanning");
     expect(actor.getSnapshot().context.devices.size).toBe(0);
   });
+
+  it("starts each scan with a fresh, empty device list", () => {
+    const actor = createActor(discoveryMachine).start();
+    actor.send({ type: "START_SCAN" });
+    actor.send({ type: "DEVICE_FOUND", device: deviceA });
+    actor.send({ type: "DEVICE_FOUND", device: deviceB });
+    actor.send({ type: "STOP_SCAN" });
+
+    // A second scan must not carry over devices from the previous one.
+    actor.send({ type: "START_SCAN" });
+    expect(actor.getSnapshot().value).toBe("scanning");
+    expect(actor.getSnapshot().context.devices.size).toBe(0);
+  });
+
+  it("ignores device events while idle", () => {
+    const actor = createActor(discoveryMachine).start();
+    actor.send({ type: "DEVICE_FOUND", device: deviceA });
+    actor.send({ type: "DEVICE_EXPIRED", deviceId: "dev-a" });
+    actor.send({ type: "CLEAR" });
+    expect(actor.getSnapshot().value).toBe("idle");
+    expect(actor.getSnapshot().context.devices.size).toBe(0);
+  });
+
+  it("replaces the devices map rather than mutating the previous one", () => {
+    const actor = createActor(discoveryMachine).start();
+    actor.send({ type: "START_SCAN" });
+    const initial = actor.getSnapshot().context.devices;
+    actor.send({ type: "DEVICE_FOUND", device: deviceA });
+    const afterFound = actor.getSnapshot().context.devices;
+    actor.send({ type: "DEVICE_EXPIRED", deviceId: "dev-a" });
+    const afterExpired = actor.getSnapshot().context.devices;
+
+    // Each transition assigns a fresh Map — the original stays untouched.
+    expect(afterFound).not.toBe(initial);
+    expect(afterExpired).not.toBe(afterFound);
+    expect(initial.size).toBe(0);
+    expect(afterFound.size).toBe(1);
+    expect(afterExpired.size).toBe(0);
+  });
 });
