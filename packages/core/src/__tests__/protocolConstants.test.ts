@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DISCOVERY_PORT,
   HTTP_HEADERS,
+  MDNS_PORT,
   MESSAGE_TYPES,
   PROTOCOL_VERSION,
   TRANSFER_PORT_END,
@@ -41,6 +42,11 @@ describe("protocol ports", () => {
     expect(unique.size).toBe(TRANSFER_PORTS.length);
     expect(unique.has(DISCOVERY_PORT)).toBe(false);
   });
+
+  it("keeps the standard mDNS port separate from the custom discovery port", () => {
+    expect(MDNS_PORT).toBe(5_353);
+    expect(MDNS_PORT).not.toBe(DISCOVERY_PORT);
+  });
 });
 
 describe("HTTP headers", () => {
@@ -73,6 +79,14 @@ describe("message types", () => {
     for (const value of values) {
       expect(value).toMatch(/^[a-z_]+$/);
     }
+  });
+});
+
+describe("runtime immutability", () => {
+  it("freezes the exported collections against runtime mutation", () => {
+    expect(Object.isFrozen(TRANSFER_PORTS)).toBe(true);
+    expect(Object.isFrozen(HTTP_HEADERS)).toBe(true);
+    expect(Object.isFrozen(MESSAGE_TYPES)).toBe(true);
   });
 });
 

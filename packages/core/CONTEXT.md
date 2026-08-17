@@ -14,7 +14,7 @@ The **core** package is the home for **platform-agnostic PairSync domain logic**
 
 ## Current Structure
 
-```
+```text
 packages/core/
 ├── src/
 │   ├── index.ts           # Re-exports ./types, ./protocol, ./constants, ./utils, ./state
@@ -50,20 +50,22 @@ Import as `import { Device, CHUNK_SIZE, isMobile } from "@pairsync/core";` — t
 
 | Dependency | Status | Purpose |
 |------------|--------|---------|
+| `xstate` | ✅ Installed (used) | XState v5 machines: device, discovery, transfer (Phase 1.1) |
 | `zod` | ✅ Installed (unused so far) | Schema validation — planned for message/transfer schemas (Phase 1) |
-| `vitest` | ✅ devDep | Unit tests (11 passing) |
+| `vitest` | ✅ devDep | Unit tests (39 passing) |
 
-Planned (per `IMPLEMENTATION_PLAN.md`): `xstate` for the state machines (Phase 1). Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
+Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
 
 ## Responsibilities (by phase)
 
 | Subsystem | Plan phase | Status |
 |-----------|-----------|--------|
 | Shared types (device, transfer, chunk, manifest, protocol) | Phase 0 (0.6) | ✅ Implemented + tested |
-| Shared constants (ports, timeouts, sizes) | Phase 0 (0.6) | ✅ Implemented + tested |
+| Shared constants (timeouts, sizes) | Phase 0 (0.6) | ✅ Implemented + tested |
 | Platform detection utils | Phase 0 (0.6) | ✅ Implemented + tested |
-| State machines (XState): device, discovery, transfer | Phase 1 | 🚧 Planned |
-| Protocol constants + message schemas (zod) | Phase 1 | 🚧 In progress (constants done in 1.5, schemas pending) |
+| State machines (XState): device, discovery, transfer | Phase 1 (1.1) | ✅ Implemented + tested |
+| Protocol constants (version, ports, headers, message types) | Phase 1 (1.5) | ✅ Implemented + tested |
+| Message schemas (zod) | Phase 1 | 🚧 Planned |
 | Network utilities (interface selection, heartbeat) | Phase 1 | 🚧 Planned |
 | Discovery (UDP multicast, mDNS, manual IP) + connection | Phase 2 | 🚧 Planned |
 | SQLite database setup + schema | Phase 2 | 🚧 Planned |
@@ -93,7 +95,8 @@ Domain terms from the PRD/plan — the type names in `src/types/` follow these:
 | Constant | Value | Description |
 |----------|-------|-------------|
 | `PROTOCOL_VERSION` | `"1.0"` | Wire protocol version (MAJOR.MINOR) |
-| `DISCOVERY_PORT` | `53350` | UDP multicast/mDNS port |
+| `DISCOVERY_PORT` | `53350` | Custom UDP multicast discovery port |
+| `MDNS_PORT` | `5353` | Standard mDNS port for `.local` name resolution |
 | `TRANSFER_PORT_START` / `TRANSFER_PORT_END` | `53351` / `53360` | TCP transfer port range |
 | `TRANSFER_PORTS` | `[53351…53360]` | All 10 transfer ports |
 | `HTTP_HEADERS` | `X-PairSync-Version`, `X-Nonce`, `X-Device-ID`, `X-Cert-Fingerprint` | HTTP header names |
