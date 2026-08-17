@@ -35,11 +35,11 @@ This is the root context map for the **PairSync** monorepo. Each context below d
 - **Location:** `packages/core/`
 - **CONTEXT.md:** `packages/core/CONTEXT.md`
 - **Domain:** Shared domain logic, state machines, and protocols
-- **Status:** ✅ Phase 0.6 implemented — shared types, constants, platform utils, and vitest tests; larger subsystems still planned (nothing imports it yet)
+- **Status:** ✅ Phase 0.6 + 1.1 + 1.5 implemented — shared types, constants, platform utils, the three XState machines, and shared protocol constants, all tested (nothing imports it yet)
 - **Responsibilities:**
-  - Shared types (device/transfer/protocol), constants (ports/timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
-  - Core state machines (XState) for device, discovery, transfer states — planned (Phase 1)
-  - Protocol definitions and wire formats — planned (Phase 1)
+  - Shared types (device/transfer/protocol), constants (timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
+  - Core state machines (XState) for device, discovery, transfer states — ✅ implemented + tested (Phase 1.1)
+  - Protocol constants (version, ports, HTTP headers, message types) — ✅ implemented + tested (Phase 1.5); message schemas — planned
   - Discovery logic (UDP multicast, mDNS, manual IP) — planned (Phase 2)
   - Transfer engine (chunked streaming, resume, verification) — planned (Phase 3)
   - Security (TLS+TOFU, QR+ECDH handshake, encryption) — planned (Phase 4)
