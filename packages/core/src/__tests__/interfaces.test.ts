@@ -90,6 +90,13 @@ describe("isLocalAddress", () => {
     expect(isLocalAddress("fec0::1")).toBe(false);
   });
 
+  it("rejects malformed IPv6 even with a local-looking prefix", () => {
+    expect(isLocalAddress("fe80:not-an-ip")).toBe(false);
+    expect(isLocalAddress("fc00::1::2")).toBe(false);
+    expect(isLocalAddress("fe80")).toBe(false);
+    expect(isLocalAddress("fe80::")).toBe(true);
+  });
+
   it("rejects loopback and malformed input as non-local", () => {
     expect(isLocalAddress("127.0.0.1")).toBe(false);
     expect(isLocalAddress("::1")).toBe(false);
@@ -165,7 +172,12 @@ describe("filterInterfacesForAdvertisement", () => {
       { name: "lo0", type: "Other", ipv4: ["127.0.0.1"], ipv6: ["::1"], preferred: false },
     ]);
     expect(filtered).toHaveLength(1);
-    expect(filtered[0]?.name).toBe("en0");
+    expect(filtered[0]).toEqual({
+      type: "Wi-Fi",
+      ipv4: ["192.168.1.10"],
+      ipv6: [],
+      preferred: true,
+    });
   });
 
   it("strips non-local addresses but keeps the interface", () => {
@@ -180,7 +192,6 @@ describe("filterInterfacesForAdvertisement", () => {
     ]);
     expect(filtered).toHaveLength(1);
     expect(filtered[0]).toEqual({
-      name: "en0",
       type: "Wi-Fi",
       ipv4: ["192.168.1.10"],
       ipv6: ["fe80::10"],
@@ -217,5 +228,10 @@ describe("connectionBackoffDelay", () => {
     expect(() => connectionBackoffDelay(Number.NaN)).toThrow(RangeError);
     expect(() => connectionBackoffDelay(0, 0)).toThrow(RangeError);
     expect(() => connectionBackoffDelay(0, -1)).toThrow(RangeError);
+  });
+
+  it("rejects attempts whose delay overflows a finite number", () => {
+    expect(() => connectionBackoffDelay(1024)).toThrow(RangeError);
+    expect(Number.isFinite(connectionBackoffDelay(1023, 1))).toBe(true);
   });
 });

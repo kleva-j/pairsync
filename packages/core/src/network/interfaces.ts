@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import type { NetworkInterface } from "../types";
 
 /**
@@ -121,6 +123,9 @@ export function isLocalAddress(ip: string): boolean {
       (a === 169 && b === 254)
     );
   }
+  // Must be a real IPv6 address first — a local-looking prefix alone (e.g.
+  // "fe80:garbage" or "fc00::1::2") is not reachable.
+  if (!z.ipv6().safeParse(ip).success) return false;
   const hextet = firstHextet(ip);
   if (hextet === null) return false;
   // link-local fe80::/10 | ULA fc00::/7
@@ -130,17 +135,19 @@ export function isLocalAddress(ip: string): boolean {
 /**
  * Cleans locally-detected interfaces for advertisement: drops VPN/loopback
  * adapter names, strips non-local addresses, and drops interfaces left
- * without any usable address.
+ * without any usable address. Returns the wire-safe shape — OS adapter
+ * names are never advertised.
  */
 export function filterInterfacesForAdvertisement(
   interfaces: DetectedInterface[],
-): DetectedInterface[] {
+): NetworkInterface[] {
   return interfaces
     .filter((iface) => !EXCLUDED_INTERFACE_NAMES.test(iface.name))
     .map((iface) => ({
-      ...iface,
+      type: iface.type,
       ipv4: iface.ipv4.filter(isLocalAddress),
       ipv6: iface.ipv6.filter(isLocalAddress),
+      preferred: iface.preferred,
     }))
     .filter((iface) => iface.ipv4.length > 0 || iface.ipv6.length > 0);
 }
@@ -192,5 +199,11 @@ export function connectionBackoffDelay(attempt: number, baseMs: number = 1_000):
     throw new RangeError(`attempt must be a non-negative integer, got ${attempt}`);
   }
   assertPositive("baseMs", baseMs);
-  return baseMs * 2 ** attempt;
+  const delay = baseMs * 2 ** attempt;
+  if (!Number.isFinite(delay)) {
+    throw new RangeError(
+      `attempt ${attempt} produces a non-finite delay; use a smaller attempt or baseMs`,
+    );
+  }
+  return delay;
 }
