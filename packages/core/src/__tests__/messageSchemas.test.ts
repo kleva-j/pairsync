@@ -26,12 +26,15 @@ const CHUNK_HASHES = [
   "d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5",
 ];
 
+const CHUNK_SIZE = 4 * 1024 * 1024; // 4 MiB
+
+// 16 MiB file at 4 MiB chunks ⇒ exactly 4 chunks (uniform chunk layout).
 const validPrepare: PrepareRequest = {
   transfer_id: "t-1",
   file_id: "f-1",
   file_name: "notes.txt",
-  file_size: 1_000_000,
-  chunk_size: 4 * 1024 * 1024,
+  file_size: 4 * CHUNK_SIZE,
+  chunk_size: CHUNK_SIZE,
   total_chunks: 4,
   hash_algorithm: "SHA-256",
   file_hash: FILE_HASH,
@@ -208,6 +211,38 @@ describe("prepareRequestSchema", () => {
       chunk_hashes: [],
     });
     expect(zeroChunkZeroByte.success).toBe(true);
+  });
+
+  it("rejects a chunk count that does not match the file layout", () => {
+    // 5 MiB at 4 MiB chunks ⇒ 2 chunks; declaring 4 is impossible.
+    const tooMany = prepareRequestSchema.safeParse({
+      ...validPrepare,
+      type: MESSAGE_TYPES.PREPARE,
+      file_size: 5 * 1024 * 1024,
+      total_chunks: 4,
+      chunk_hashes: CHUNK_HASHES,
+    });
+    expect(tooMany.success).toBe(false);
+
+    // 5 MiB at 4 MiB chunks ⇒ 2 chunks; declaring 1 undershoots.
+    const tooFew = prepareRequestSchema.safeParse({
+      ...validPrepare,
+      type: MESSAGE_TYPES.PREPARE,
+      file_size: 5 * 1024 * 1024,
+      total_chunks: 1,
+      chunk_hashes: [FILE_HASH],
+    });
+    expect(tooFew.success).toBe(false);
+
+    // Partial final chunk is legal: 5 MiB at 4 MiB chunks ⇒ 2 chunks.
+    const partialLast = prepareRequestSchema.safeParse({
+      ...validPrepare,
+      type: MESSAGE_TYPES.PREPARE,
+      file_size: 5 * 1024 * 1024,
+      total_chunks: 2,
+      chunk_hashes: CHUNK_HASHES.slice(0, 2),
+    });
+    expect(partialLast.success).toBe(true);
   });
 });
 

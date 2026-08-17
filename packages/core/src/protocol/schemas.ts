@@ -49,11 +49,15 @@ export const prepareRequestSchema = z
         message: `expected ${manifest.total_chunks} chunk hashes, got ${manifest.chunk_hashes.length}`,
       });
     }
-    if ((manifest.file_size === 0) !== (manifest.total_chunks === 0)) {
+    // Uniform chunk_size means the chunk count is derivable from the file
+    // size; a mismatch would leave a receiver waiting for chunks the sender
+    // will never produce. Also covers zero-byte files (ceil(0) = 0 chunks).
+    const expectedChunks = Math.ceil(manifest.file_size / manifest.chunk_size);
+    if (manifest.total_chunks !== expectedChunks) {
       ctx.addIssue({
         code: "custom",
         path: ["total_chunks"],
-        message: "a zero-byte file has zero chunks (and vice versa)",
+        message: `file_size ${manifest.file_size} with chunk_size ${manifest.chunk_size} implies ${expectedChunks} chunks, got ${manifest.total_chunks}`,
       });
     }
   });
