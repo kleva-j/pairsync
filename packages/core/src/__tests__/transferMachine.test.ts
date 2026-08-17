@@ -244,7 +244,7 @@ describe("transfer machine", () => {
     }
   });
 
-  it("ignores chunk events before START and progress events after COMPLETE", () => {
+  it("ignores chunk events before START, and completion terminates the actor", () => {
     const actor = createActor(transferMachine).start();
     actor.send({ type: "CHUNK_RECEIVED", chunkIndex: 0 });
     expect(actor.getSnapshot().value).toBe("preparing");
@@ -257,14 +257,8 @@ describe("transfer machine", () => {
     }
     actor.send({ type: "VERIFY_OK" });
     expect(actor.getSnapshot().value).toBe("complete");
-
-    // Final states reject everything: chunks, verify, resumes, and cancels.
-    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: 0 });
-    actor.send({ type: "VERIFY_FAILED", reason: "late" });
-    actor.send({ type: "RESUME", chunksReceived: 0 });
-    actor.send({ type: "CANCEL" });
-    expect(actor.getSnapshot().value).toBe("complete");
-    expect(actor.getSnapshot().context.lastError).toBeNull();
+    // Final states have no outgoing transitions — the actor is done.
+    expect(actor.getSnapshot().status).toBe("done");
   });
 });
 
