@@ -227,17 +227,22 @@ describe("transfer machine", () => {
     expect(actor.getSnapshot().context.chunksReceived).toBe(1);
   });
 
-  it("does not fire the transfer timeout once the state has been left", () => {
+  it("clears the transfer timeout when leaving the transferring state", () => {
     vi.useFakeTimers();
     try {
       const actor = createActor(transferMachine).start();
       actor.send({ type: "START", transfer });
       actor.send({ type: "PREPARED" });
-      actor.send({ type: "CANCEL" });
-      expect(actor.getSnapshot().value).toBe("cancelled");
+      // All chunks arrive, moving into verifying (a non-final state). If the
+      // after-delay were still armed, advancing past TRANSFER_TIMEOUT would
+      // fire the timeout; it must not.
+      for (let i = 0; i < transfer.total_chunks; i++) {
+        actor.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+      }
+      expect(actor.getSnapshot().value).toBe("verifying");
 
       vi.advanceTimersByTime(TRANSFER_TIMEOUT * 2);
-      expect(actor.getSnapshot().value).toBe("cancelled");
+      expect(actor.getSnapshot().value).toBe("verifying");
       expect(actor.getSnapshot().context.lastError).toBeNull();
     } finally {
       vi.useRealTimers();

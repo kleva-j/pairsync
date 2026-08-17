@@ -10,7 +10,7 @@
 
 The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> ✅ **Status: Phase 0.6 + 1.1 + 1.5 + 1.6 + 1.7 implemented.** Shared types, constants, platform utils, the three XState machines, the shared protocol constants, the heartbeat protocol logic, and interface selection are implemented and unit-tested. Still **Planned**: message schemas, discovery, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 1+.
+> ✅ **Status: Phase 0.6 + 1.1 + 1.5 + 1.6 + 1.7 + 1.8 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the heartbeat protocol logic, and interface selection are implemented and unit-tested. Still **Planned**: message schemas, discovery, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 1+.
 
 ## Current Structure
 

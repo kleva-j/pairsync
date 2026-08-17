@@ -113,7 +113,7 @@ describe("device machine", () => {
     }
   });
 
-  it("returns to idle when the device is lost during scanning", () => {
+  it("returns to scanning when a discovered device is lost", () => {
     const actor = createActor(deviceMachine).start();
     actor.send({ type: "START_SCAN" });
     actor.send({ type: "DEVICE_DISCOVERED", device });
