@@ -40,7 +40,7 @@ This is the root context map for the **PairSync** monorepo. Each context below d
   - Shared types (device/transfer/protocol), constants (timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
   - Core state machines (XState) for device, discovery, transfer states — ✅ implemented + tested (Phase 1.1)
   - Protocol constants (version, ports, HTTP headers, message types) — ✅ implemented + tested (Phase 1.5)
-  - Wire-message schemas (zod: prepare/chunk/resume + discriminated union) — ✅ implemented + tested (Phase 1.2)
+  - Wire-message schemas + builders (zod: prepare/chunk/resume + discriminated union; senders serialize via build* helpers) — ✅ implemented + tested (Phase 1.2)
   - State-machine unit tests (all states/transitions/guards) — ✅ implemented + tested (Phase 1.8)
   - Heartbeat protocol logic (build/parse datagrams, missed-heartbeat expiry, tracker) — ✅ implemented + tested (Phase 1.6)
   - Interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff) — ✅ implemented + tested (Phase 1.7)
