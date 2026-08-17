@@ -35,11 +35,13 @@ This is the root context map for the **PairSync** monorepo. Each context below d
 - **Location:** `packages/core/`
 - **CONTEXT.md:** `packages/core/CONTEXT.md`
 - **Domain:** Shared domain logic, state machines, and protocols
-- **Status:** ✅ Phase 0.6 + 1.1 + 1.5 + 1.6 + 1.7 implemented — shared types, constants, platform utils, the three XState machines, shared protocol constants, heartbeat protocol logic, and interface selection, all tested (nothing imports it yet)
+- **Status:** ✅ Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 implemented — shared types, constants, platform utils, the three XState machines, shared protocol constants, zod wire-message schemas, heartbeat protocol logic, interface selection, and state-machine tests; Phase 1 complete (nothing imports it yet)
 - **Responsibilities:**
   - Shared types (device/transfer/protocol), constants (timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
   - Core state machines (XState) for device, discovery, transfer states — ✅ implemented + tested (Phase 1.1)
-  - Protocol constants (version, ports, HTTP headers, message types) — ✅ implemented + tested (Phase 1.5); message schemas — planned
+  - Protocol constants (version, ports, HTTP headers, message types) — ✅ implemented + tested (Phase 1.5)
+  - Wire-message schemas (zod: prepare/chunk/resume + discriminated union) — ✅ implemented + tested (Phase 1.2)
+  - State-machine unit tests (all states/transitions/guards) — ✅ implemented + tested (Phase 1.8)
   - Heartbeat protocol logic (build/parse datagrams, missed-heartbeat expiry, tracker) — ✅ implemented + tested (Phase 1.6)
   - Interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff) — ✅ implemented + tested (Phase 1.7)
   - Discovery logic (UDP multicast, mDNS, manual IP) — planned (Phase 2)
@@ -111,7 +113,7 @@ Root-level ADRs that apply to the entire monorepo are stored in `docs/adr/`. Con
 
 The diagram shows the **target** architecture. Current dependency reality:
 
-- **core** holds implemented shared types/constants/utils but nothing imports `@pairsync/core` yet (consumers land in Phase 1)
+- **core** holds implemented shared types/constants/utils but nothing imports `@pairsync/core` yet (consumers arrive in Phase 2)
 - **ui** is consumed by `apps/web` only (native uses `uniwind` + `heroui-native`)
 - **env** is declared in web/native/root manifests but imported by no code yet
 - **config** has no runtime exports — it only ships `tsconfig.base.json`

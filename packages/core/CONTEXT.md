@@ -10,7 +10,7 @@
 
 The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> ✅ **Status: Phase 0.6 + 1.1 + 1.5 + 1.6 + 1.7 + 1.8 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the heartbeat protocol logic, and interface selection are implemented and unit-tested. Still **Planned**: message schemas, discovery, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 1+.
+> ✅ **Status: Phase 0.6 + 1.1 + 1.2 (message schemas) + 1.5 + 1.6 + 1.7 + 1.8 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic, and interface selection are implemented and unit-tested. **Phase 1 (Core Infrastructure) is complete.** Still **Planned**: discovery, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 1+.
 
 ## Current Structure
 
@@ -25,6 +25,7 @@ packages/core/
 │   │   └── index.ts
 │   ├── protocol/
 │   │   ├── constants.ts   # PROTOCOL_VERSION, ports, HTTP_HEADERS, MESSAGE_TYPES
+│   │   ├── schemas.ts     # zod wire schemas: prepare/chunk/resume messages + transferMessageSchema
 │   │   └── index.ts
 │   ├── constants/
 │   │   ├── timeouts.ts    # MISSED_HEARTBEATS_LIMIT, HEARTBEAT_*, CONNECTION/TRANSFER_TIMEOUT
@@ -55,8 +56,8 @@ Import as `import { Device, CHUNK_SIZE, isMobile } from "@pairsync/core";` — t
 | Dependency | Status | Purpose |
 |------------|--------|---------|
 | `xstate` | ✅ Installed (used) | XState v5 machines: device, discovery, transfer (Phase 1.1) |
-| `zod` | ✅ Installed (used) | Heartbeat datagram schema (`heartbeatSchema`, Phase 1.6); message/transfer schemas planned |
-| `vitest` | ✅ devDep | Unit tests (103 passing) |
+| `zod` | ✅ Installed (used) | Heartbeat datagram schema (`heartbeatSchema`, Phase 1.6) + wire-message schemas (`prepare/chunk/resume`, Phase 1.2) |
+| `vitest` | ✅ devDep | Unit tests (127 passing) |
 
 Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
 
@@ -71,7 +72,7 @@ Platform-specific crypto/networking libraries live in the **apps**, not core —
 | Protocol constants (version, ports, headers, message types) | Phase 1 (1.5) | ✅ Implemented + tested |
 | Heartbeat protocol logic (generate/parse/expiry, tracker) | Phase 1 (1.6) | ✅ Implemented + tested |
 | Interface selection logic (priority ranking, locality filtering, backoff) | Phase 1 (1.7) | ✅ Implemented + tested |
-| Message schemas (zod) | Phase 1 | 🚧 Planned |
+| Message schemas (zod wire schemas: prepare/chunk/resume + discriminated union) | Phase 1 (1.2) | ✅ Implemented + tested |
 | Discovery (UDP multicast, mDNS, manual IP) + connection | Phase 2 | 🚧 Planned |
 | SQLite database setup + schema | Phase 2 | 🚧 Planned |
 | Transfer engine (prepare, chunked upload/download, resume, verify, queue) | Phase 3 | 🚧 Planned |
@@ -170,7 +171,7 @@ X-Cert-Fingerprint: <SHA-256 of sender's cert>
 
 ## Testing
 
-Vitest is configured (`test: vitest run`). 103 unit tests pass covering protocol constants (version/ports/headers/message types), shared constants (timeouts/sizes), the three XState machines (every state/transition/guard, including device loss, retry caps, resume caps, zero-chunk transfers, timeout-cleared-on-exit, and ignored events in the wrong state), platform detection (node/web/mobile/desktop via stubbed globals), the heartbeat module (build/parse validation, missed-heartbeat counting, tracker expiry with an injected clock), and interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff schedule). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
+Vitest is configured (`test: vitest run`). 127 unit tests pass covering protocol constants (version/ports/headers/message types), the zod wire-message schemas (prepare/chunk/resume round-trips, field validation, canonical SHA-256 digest validation, chunk-layout consistency, base64 chunk decoding with a runtime fallback, discriminated-union dispatch), shared constants (timeouts/sizes), the three XState machines (every state/transition/guard, including device loss, retry caps, resume caps, zero-chunk transfers, timeout-cleared-on-exit, and ignored events in the wrong state), platform detection (node/web/mobile/desktop via stubbed globals), the heartbeat module (build/parse validation, missed-heartbeat counting, tracker expiry with an injected clock), and interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff schedule). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
 
 ## ADRs
 
