@@ -18,6 +18,8 @@ class FakeSocket implements MulticastSocket {
   joinPending?: Promise<void>;
   /** When set, send awaits this promise first (to hold a tick in flight). */
   sendPending?: Promise<void>;
+  /** When set, close awaits this promise first (to hold stop() mid-flight). */
+  closePending?: Promise<void>;
 
   private handler?: (data: Uint8Array, remote: { address: string; port: number }) => void;
 
@@ -47,6 +49,7 @@ class FakeSocket implements MulticastSocket {
   }
 
   async close(): Promise<void> {
+    if (this.closePending) await this.closePending;
     this.closed = true;
   }
 
@@ -301,6 +304,51 @@ describe("MulticastDiscovery", () => {
     // Only the first tick's sends landed; the overlap was dropped.
     expect(socket.messages.length).toBe(4);
     await discovery.stop();
+  });
+
+  it("start() during an in-flight stop() waits and restarts cleanly", async () => {
+    const { socket, scheduler, discovery } = setup();
+    await discovery.start();
+    let release!: () => void;
+    socket.closePending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stopPromise = discovery.stop(); // cleanup blocked on close
+    const startPromise = discovery.start(); // must wait for stop, not race it
+    release();
+    await stopPromise;
+    await startPromise;
+    // Restarted cleanly: groups joined again, one timer, sends flowing.
+    expect(socket.joined).toEqual(["224.0.0.1", "ff02::1", "224.0.0.1", "ff02::1"]);
+    expect(scheduler.pending).toBe(1);
+    expect(socket.closed).toBe(false);
+    await scheduler.tick();
+    // 2 (initial announce) + 2 (restart announce) + 2 (this tick)
+    expect(socket.messages.length).toBe(6);
+    await discovery.stop();
+  });
+
+  it("drops heartbeats received before start or after stop", async () => {
+    const { socket, discovery, seen } = setup();
+    const peer = new TextEncoder().encode(
+      buildHeartbeat({
+        device_id: "peer-1",
+        alias: "Peer",
+        platform: "ios",
+        interfaces: [{ type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true }],
+        port: DISCOVERY_PORT,
+      }),
+    );
+    socket.receive(peer); // engine not started yet
+    expect(seen).toHaveLength(0);
+
+    await discovery.start();
+    socket.receive(peer);
+    expect(seen).toHaveLength(1);
+
+    await discovery.stop();
+    socket.receive(peer);
+    expect(seen).toHaveLength(1); // no callbacks once stopped
   });
 
   it("can be restarted after a stop", async () => {

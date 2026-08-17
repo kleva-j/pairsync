@@ -43,8 +43,9 @@ export const MULTICAST_GROUPS = Object.freeze({
  * hosts with multiple interfaces the adapter must join per-interface (the
  * optional `iface` parameter exists for exactly this). The engine cannot
  * pick an interface — that's the platform interface-detector concern
- * (`network/interfaces.ts`) — so it always joins without a scope and
- * relies on the adapter.
+ * (`network/interfaces.ts`) — so it always calls `joinGroup`/`leaveGroup`
+ * without a scope. An adapter that scopes joins internally must track its
+ * own memberships so `leaveGroup` undoes exactly what `joinGroup` set up.
  */
 export interface MulticastSocket {
   /** Registers the inbound-datagram handler (called by the adapter). */
@@ -74,7 +75,12 @@ export const defaultDiscoveryScheduler: DiscoveryScheduler = {
 export interface MulticastDiscoveryOptions {
   /** Platform socket adapter (see {@link MulticastSocket}). */
   socket: MulticastSocket;
-  /** Returns a fresh heartbeat payload for each send (interfaces refresh). */
+  /**
+   * Returns a fresh heartbeat payload for each send (interfaces refresh).
+   * The payload's `device_id` must stay stable for the engine's lifetime —
+   * it is captured once for own-echo filtering, so a changing id would
+   * either re-discover ourselves or drop valid peers.
+   */
   heartbeat: () => HeartbeatPayload;
   /** Timer source (defaults to global timers; inject a manual one in tests). */
   scheduler?: DiscoveryScheduler;
@@ -134,6 +140,10 @@ export class MulticastDiscovery {
   async start(): Promise<void> {
     if (this.startPromise) return this.startPromise;
     if (this.started) return;
+    // A stop() may still be unwinding (leaving groups / closing). Wait for it
+    // so its cleanup cannot close the socket this start is about to use.
+    if (this.stopPromise) await this.stopPromise;
+    if (this.started) return; // a racing start won while we waited
     this.started = true;
     const run = (async () => {
       for (const group of this.groups) {
@@ -223,6 +233,9 @@ export class MulticastDiscovery {
   }
 
   private handleMessage(data: Uint8Array): void {
+    // Surface devices only while discovery is running; drop datagrams that
+    // arrive before start() or after stop().
+    if (!this.started) return;
     let heartbeat: HeartbeatPayload;
     try {
       heartbeat = parseHeartbeat(new TextDecoder().decode(data));

@@ -39,7 +39,7 @@ pairsync/
 - ✅ Wire-message schemas + builders (zod: prepare/chunk/resume + discriminated union)
 - ✅ Heartbeat protocol logic (datagram building/parsing, missed-heartbeat expiry)
 - ✅ Network interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority)
-- ✅ Comprehensive unit tests (153 passing tests)
+- ✅ Comprehensive unit tests (155 passing tests)
 
 **Build & Testing Infrastructure:**
 - ✅ Turborepo pipeline with dependency-aware task scheduling
@@ -146,7 +146,7 @@ The project uses a comprehensive testing strategy:
 - **Type Checking**: TypeScript strict mode with `tsc --noEmit`
 - **CI/CD**: GitHub Actions running on every PR (typecheck, JS unit tests, native jest tests, build, Tauri desktop build)
 
-Test coverage is currently focused on the core package with 153 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, heartbeat/network logic, and interface selection.
+Test coverage is currently focused on the core package with 155 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, heartbeat/network logic, and interface selection.
 
 ## 📚 Documentation
 
