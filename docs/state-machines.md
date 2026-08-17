@@ -79,7 +79,6 @@ stateDiagram-v2
     SCANNING --> SCANNING: DEVICE_FOUND [isNewDevice]
     SCANNING --> SCANNING: DEVICE_EXPIRED [isTrackedDevice]
     SCANNING --> SCANNING: CLEAR
-    SCANNING --> SCANNING: after HEARTBEAT_TIMEOUT (stale sweep)
     SCANNING --> IDLE: STOP_SCAN
 ```
 
@@ -119,10 +118,10 @@ failed transfers.
 stateDiagram-v2
     [*] --> PREPARING
     PREPARING --> PREPARING: START { transfer }
-    PREPARING --> TRANSFERRING: PREPARED
-    PREPARING --> ERROR: PREPARE_REJECTED
+    PREPARING --> TRANSFERRING: PREPARED [hasTransfer]
+    PREPARING --> ERROR: PREPARE_REJECTED [hasTransfer]
     PREPARING --> CANCELLED: CANCEL
-    TRANSFERRING --> TRANSFERRING: CHUNK_RECEIVED (not all)
+    TRANSFERRING --> TRANSFERRING: CHUNK_RECEIVED [isNextChunk]
     TRANSFERRING --> VERIFYING: CHUNK_RECEIVED [allChunksReceived]
     TRANSFERRING --> ERROR: CHUNK_FAILED
     TRANSFERRING --> ERROR: after TRANSFER_TIMEOUT
@@ -131,6 +130,7 @@ stateDiagram-v2
     VERIFYING --> ERROR: VERIFY_FAILED
     VERIFYING --> CANCELLED: CANCEL
     ERROR --> TRANSFERRING: RESUME [canResume]
+    ERROR --> VERIFYING: RESUME [resumeCompletes]
     ERROR --> CANCELLED: CANCEL
     COMPLETE --> [*]
     CANCELLED --> [*]
@@ -156,10 +156,13 @@ stateDiagram-v2
 
 ### Guards
 
-| Guard              | Passes when                                                       |
-| ------------------ | ----------------------------------------------------------------- |
-| `allChunksReceived`| After applying the incoming chunk, `chunksReceived >= total_chunks` (checked pre-action, so it accounts for the event's chunk). |
-| `canResume`        | `resumeAttempts < MAX_RESUME_ATTEMPTS` (2-resume cap).            |
+| Guard              | Passes when                                                          |
+| ------------------ | -------------------------------------------------------------------- |
+| `hasTransfer`      | A `START` has been received (`context.transfer !== null`).           |
+| `isNextChunk`      | The event's chunk is the next contiguous index (`chunkIndex === chunksReceived`) and in range (`< total_chunks`). |
+| `allChunksReceived`| The contiguous final chunk (`chunkIndex === total_chunks - 1`) arrived. |
+| `canResume`        | Resume count in `[0, total_chunks)` and `resumeAttempts < MAX_RESUME_ATTEMPTS` (2-resume cap). |
+| `resumeCompletes`  | Resume count `=== total_chunks` and `resumeAttempts < MAX_RESUME_ATTEMPTS` — straight to verifying. |
 
 ### Context
 
@@ -170,13 +173,17 @@ stateDiagram-v2
 
 ## Design decisions
 
-- **Guards are pure and event-aware.** `allChunksReceived` is evaluated
-  *before* the `recordChunk` action runs, so it computes the post-event
-  count itself — otherwise the machine would never leave `TRANSFERRING`.
+- **Chunk progress is strictly contiguous.** `CHUNK_RECEIVED` only advances
+  progress when the event's index equals `chunksReceived` and is in range —
+  sparse, duplicate, negative, or out-of-range events are ignored, so an
+  incomplete transfer can never be marked complete. Resume counts are
+  bounds-checked the same way.
 - **Timeouts are declarative.** `CONNECTION_TIMEOUT` (device) and
   `TRANSFER_TIMEOUT` (transfer) use XState `after` delays, so no timer
   bookkeeping leaks into actors.
 - **Retry caps are explicit constants.** `MAX_CONNECT_ATTEMPTS = 3` (device)
   and `MAX_RESUME_ATTEMPTS = 2` (transfer) are exported and unit-tested.
 - **Discovery is actor-driven.** The machine is the state owner; the actor
-  (Phase 1.3) does the actual socket/mDNS work and feeds events in.
+  (Phase 1.3) does the actual socket/mDNS work and feeds events in —
+  including stale-device expiry via `DEVICE_EXPIRED`. The machine carries
+  no sweep timer of its own.

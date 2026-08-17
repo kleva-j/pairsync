@@ -36,6 +36,7 @@ describe("discovery machine", () => {
     actor.send({ type: "STOP_SCAN" });
     expect(actor.getSnapshot().value).toBe("idle");
     expect(actor.getSnapshot().context.scanStartedAt).toBeNull();
+    expect(actor.getSnapshot().context.devices.size).toBe(0);
   });
 
   it("does not double-count a device already in the list", () => {

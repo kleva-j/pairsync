@@ -1,6 +1,5 @@
 import { assign, setup } from "xstate";
 
-import { HEARTBEAT_TIMEOUT } from "../../constants";
 import type { Device } from "../../types";
 
 /**
@@ -67,7 +66,7 @@ export const discoveryMachine = setup({
       scanStartedAt: () => Date.now(),
       devices: () => new Map(),
     }),
-    stopScan: assign({ scanStartedAt: () => null }),
+    stopScan: assign({ scanStartedAt: () => null, devices: () => new Map() }),
   },
 }).createMachine({
   id: "discovery",
@@ -93,12 +92,6 @@ export const discoveryMachine = setup({
         },
         STOP_SCAN: { target: "idle", actions: "stopScan" },
         CLEAR: { target: "scanning", actions: "clearDevices" },
-      },
-      after: {
-        // Stale-device sweep: devices that have not been refreshed within
-        // HEARTBEAT_TIMEOUT are dropped. The actor sends DEVICE_EXPIRED per
-        // device; this self-loop simply documents the expiry cadence.
-        [HEARTBEAT_TIMEOUT]: { target: "scanning" },
       },
     },
   },

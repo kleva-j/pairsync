@@ -38,17 +38,45 @@ export const transferMachine = setup({
     events: TransferMachineEvent;
   },
   guards: {
+    /** A successful START has been received (the manifest is set). */
+    hasTransfer: ({ context }) => context.transfer !== null,
     /**
-     * All chunks of the transfer have been acknowledged. Evaluated before
-     * the recordChunk action runs, so it must account for the chunk carried
-     * by the event (mirrors recordChunk's max() semantics).
+     * The chunk is the next contiguous index within bounds. Sparse,
+     * duplicate, negative, or out-of-range events do not advance progress.
+     */
+    isNextChunk: ({ context, event }) =>
+      context.transfer !== null &&
+      event.type === "CHUNK_RECEIVED" &&
+      event.chunkIndex === context.chunksReceived &&
+      event.chunkIndex < context.transfer.total_chunks,
+    /**
+     * All chunks have been acknowledged: the contiguous final chunk just
+     * arrived, so the transfer can move to verification.
      */
     allChunksReceived: ({ context, event }) =>
       context.transfer !== null &&
       event.type === "CHUNK_RECEIVED" &&
-      Math.max(context.chunksReceived, event.chunkIndex + 1) >= context.transfer.total_chunks,
-    /** A failed transfer may be resumed up to MAX_RESUME_ATTEMPTS times. */
-    canResume: ({ context }) => context.resumeAttempts < MAX_RESUME_ATTEMPTS,
+      event.chunkIndex === context.chunksReceived &&
+      event.chunkIndex === context.transfer.total_chunks - 1,
+    /**
+     * A failed transfer may be resumed with a partial, in-range count up to
+     * MAX_RESUME_ATTEMPTS times.
+     */
+    canResume: ({ context, event }) =>
+      context.transfer !== null &&
+      event.type === "RESUME" &&
+      event.chunksReceived >= 0 &&
+      event.chunksReceived < context.transfer.total_chunks &&
+      context.resumeAttempts < MAX_RESUME_ATTEMPTS,
+    /**
+     * A resume whose count already covers every chunk skips straight to
+     * verification (still bounded by the resume cap).
+     */
+    resumeCompletes: ({ context, event }) =>
+      context.transfer !== null &&
+      event.type === "RESUME" &&
+      event.chunksReceived === context.transfer.total_chunks &&
+      context.resumeAttempts < MAX_RESUME_ATTEMPTS,
   },
   actions: {
     startTransfer: assign({
@@ -83,8 +111,8 @@ export const transferMachine = setup({
     preparing: {
       on: {
         START: { target: "preparing", actions: "startTransfer" },
-        PREPARED: { target: "transferring" },
-        PREPARE_REJECTED: { target: "error", actions: "setError" },
+        PREPARED: { target: "transferring", guard: "hasTransfer" },
+        PREPARE_REJECTED: { target: "error", guard: "hasTransfer", actions: "setError" },
         CANCEL: { target: "cancelled" },
       },
     },
@@ -96,7 +124,7 @@ export const transferMachine = setup({
             guard: "allChunksReceived",
             actions: "recordChunk",
           },
-          { target: "transferring", actions: "recordChunk" },
+          { target: "transferring", guard: "isNextChunk", actions: "recordChunk" },
         ],
         CHUNK_FAILED: { target: "error", actions: "setError" },
         CANCEL: { target: "cancelled" },
@@ -116,11 +144,18 @@ export const transferMachine = setup({
     cancelled: { type: "final" },
     error: {
       on: {
-        RESUME: {
-          target: "transferring",
-          guard: "canResume",
-          actions: "resumeTransfer",
-        },
+        RESUME: [
+          {
+            target: "verifying",
+            guard: "resumeCompletes",
+            actions: "resumeTransfer",
+          },
+          {
+            target: "transferring",
+            guard: "canResume",
+            actions: "resumeTransfer",
+          },
+        ],
         CANCEL: { target: "cancelled" },
       },
     },

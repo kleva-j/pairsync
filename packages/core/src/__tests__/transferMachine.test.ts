@@ -102,6 +102,65 @@ describe("transfer machine", () => {
     expect(actor.getSnapshot().value).toBe("error");
   });
 
+  it("ignores PREPARED and PREPARE_REJECTED before a START", () => {
+    const actor = createActor(transferMachine).start();
+
+    actor.send({ type: "PREPARED" });
+    expect(actor.getSnapshot().value).toBe("preparing");
+    expect(actor.getSnapshot().context.transfer).toBeNull();
+
+    actor.send({ type: "PREPARE_REJECTED", reason: "not started" });
+    expect(actor.getSnapshot().value).toBe("preparing");
+    expect(actor.getSnapshot().context.lastError).toBeNull();
+  });
+
+  it("only advances progress on contiguous, in-range chunks", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+
+    // An initial final-chunk event must not complete the transfer.
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: transfer.total_chunks - 1 });
+    expect(actor.getSnapshot().value).toBe("transferring");
+    expect(actor.getSnapshot().context.chunksReceived).toBe(0);
+
+    // Out-of-range and negative indices are ignored as well.
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: transfer.total_chunks });
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: -1 });
+    expect(actor.getSnapshot().context.chunksReceived).toBe(0);
+
+    // A duplicate of an already-received chunk does not advance progress.
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: 0 });
+    actor.send({ type: "CHUNK_RECEIVED", chunkIndex: 0 });
+    expect(actor.getSnapshot().context.chunksReceived).toBe(1);
+
+    // Sequential chunks eventually complete the transfer.
+    for (let i = 1; i < transfer.total_chunks; i++) {
+      actor.send({ type: "CHUNK_RECEIVED", chunkIndex: i });
+    }
+    expect(actor.getSnapshot().value).toBe("verifying");
+  });
+
+  it("validates RESUME counts: out-of-range refused, complete count verifies", () => {
+    const actor = createActor(transferMachine).start();
+    actor.send({ type: "START", transfer });
+    actor.send({ type: "PREPARED" });
+    actor.send({ type: "CHUNK_FAILED", reason: "disconnect" });
+    expect(actor.getSnapshot().value).toBe("error");
+
+    // Out-of-range and negative resume counts are ignored.
+    actor.send({ type: "RESUME", chunksReceived: transfer.total_chunks + 1 });
+    expect(actor.getSnapshot().value).toBe("error");
+    actor.send({ type: "RESUME", chunksReceived: -1 });
+    expect(actor.getSnapshot().value).toBe("error");
+    expect(actor.getSnapshot().context.resumeAttempts).toBe(0);
+
+    // A count equal to total_chunks resumes straight into verifying.
+    actor.send({ type: "RESUME", chunksReceived: transfer.total_chunks });
+    expect(actor.getSnapshot().value).toBe("verifying");
+    expect(actor.getSnapshot().context.resumeAttempts).toBe(1);
+  });
+
   it("times out while transferring", () => {
     vi.useFakeTimers();
     try {
