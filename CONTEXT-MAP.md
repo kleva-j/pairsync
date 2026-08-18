@@ -35,7 +35,7 @@ This is the root context map for the **PairSync** monorepo. Each context below d
 - **Location:** `packages/core/`
 - **CONTEXT.md:** `packages/core/CONTEXT.md`
 - **Domain:** Shared domain logic, state machines, and protocols
-- **Status:** ✅ Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 implemented — shared types, constants, platform utils, the three XState machines, shared protocol constants, zod wire-message schemas, heartbeat protocol logic, interface selection, state-machine tests, and the UDP multicast discovery engine; Phase 1 complete + Phase 2.1 done (nothing imports it yet)
+- **Status:** ✅ Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 implemented — shared types, constants, platform utils, the three XState machines, shared protocol constants, zod wire-message schemas, heartbeat protocol logic, interface selection, state-machine tests, UDP multicast discovery engine, and mDNS discovery engine; Phase 1 complete + Phase 2.1 & 2.2 done (nothing imports it yet)
 - **Responsibilities:**
   - Shared types (device/transfer/protocol), constants (timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
   - Core state machines (XState) for device, discovery, transfer states — ✅ implemented + tested (Phase 1.1)
@@ -44,7 +44,8 @@ This is the root context map for the **PairSync** monorepo. Each context below d
   - State-machine unit tests (all states/transitions/guards) — ✅ implemented + tested (Phase 1.8)
   - Heartbeat protocol logic (build/parse datagrams, missed-heartbeat expiry, tracker) — ✅ implemented + tested (Phase 1.6)
   - Interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff) — ✅ implemented + tested (Phase 1.7)
-  - UDP multicast discovery engine (MulticastDiscovery over a MulticastSocket contract: group joins, 5s heartbeat cadence, own-echo dedupe) — ✅ implemented + tested (Phase 2.1); mDNS + manual IP fallback — planned (Phase 2)
+  - UDP multicast discovery engine (MulticastDiscovery over a MulticastSocket contract: group joins, 5s heartbeat cadence, own-echo dedupe) — ✅ implemented + tested (Phase 2.1)
+  - mDNS discovery engine (MdnsDiscovery over an MdnsService contract: service advertisement/browsing, own-service dedupe, service-loss callbacks) — ✅ implemented + tested (Phase 2.2); manual IP fallback — planned (Phase 2)
   - Transfer engine (chunked streaming, resume, verification) — planned (Phase 3)
   - Security (TLS+TOFU, QR+ECDH handshake, encryption) — planned (Phase 4)
 
