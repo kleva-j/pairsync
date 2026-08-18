@@ -39,7 +39,7 @@ pairsync/
 - ✅ Wire-message schemas + builders (zod: prepare/chunk/resume + discriminated union)
 - ✅ Heartbeat protocol logic (datagram building/parsing, missed-heartbeat expiry)
 - ✅ Network interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority)
-- ✅ Comprehensive unit tests (183 passing tests)
+- ✅ Comprehensive unit tests (203 passing tests)
 
 **Build & Testing Infrastructure:**
 - ✅ Turborepo pipeline with dependency-aware task scheduling
@@ -53,6 +53,7 @@ pairsync/
 **Phase 2 - Discovery & Connect:**
 - ✅ UDP multicast discovery engine (core; platform socket adapters pending)
 - ✅ mDNS discovery engine (core; platform adapter pending)
+- ✅ Device list management (core: add/update/remove, timeout expiry, deduplication)
 - ⏳ Manual IP fallback mechanism
 
 **Phase 3 - Transfer Engine:**
@@ -146,7 +147,7 @@ The project uses a comprehensive testing strategy:
 - **Type Checking**: TypeScript strict mode with `tsc --noEmit`
 - **CI/CD**: GitHub Actions running on every PR (typecheck, JS unit tests, native jest tests, build, Tauri desktop build)
 
-Test coverage is currently focused on the core package with 183 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, mDNS discovery, heartbeat/network logic, and interface selection.
+Test coverage is currently focused on the core package with 203 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, mDNS discovery, heartbeat/network logic, and interface selection.
 
 ## 📚 Documentation
 
