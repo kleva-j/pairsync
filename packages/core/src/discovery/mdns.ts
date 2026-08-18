@@ -1,5 +1,5 @@
 import { SERVICE_TYPE, PROTOCOL_VERSION } from "../protocol";
-import type { Device, HeartbeatPayload } from "../types";
+import type { Device, HeartbeatPayload, Platform } from "../types";
 
 /**
  * mDNS discovery (Phase 2.2, N-249) — Tier 2 of the discovery stack.
@@ -18,15 +18,27 @@ import type { Device, HeartbeatPayload } from "../types";
  * entirely and fall back to manual IP entry (Tier 3).
  */
 
+/** Set of supported platform values (mirrors the `Platform` union). */
+const SUPPORTED_PLATFORMS: ReadonlySet<string> = new Set<Platform>([
+  "ios",
+  "android",
+  "macos",
+  "windows",
+  "linux",
+  "web",
+  "unknown",
+]);
+
 /** Platform mDNS service contract. Implemented by each app's adapter. */
 export interface MdnsService {
   /**
    * Advertises a service under the given name.
+   * @param serviceType - The mDNS service type (e.g. "_pairsync._tcp.local")
    * @param name - The service name (e.g. "pairsync-abc123")
    * @param port - The port the service listens on
    * @param txt - TXT record key-value pairs
    */
-  advertise(name: string, port: number, txt: Record<string, string>): Promise<void>;
+  advertise(serviceType: string, name: string, port: number, txt: Record<string, string>): Promise<void>;
 
   /**
    * Starts browsing for services of the given type.
@@ -42,7 +54,8 @@ export interface MdnsService {
   onServiceFound(
     handler: (service: {
       name: string;
-      host: string;
+      ipv4: string[];
+      ipv6: string[];
       port: number;
       txt: Record<string, string>;
     }) => void,
@@ -96,7 +109,7 @@ export interface MdnsDiscoveryOptions {
  */
 function parseTxtRecord(
   txt: Record<string, string>,
-): { device_id: string; alias: string; platform: string } {
+): { device_id: string; alias: string; platform: Platform } {
   const { device_id, alias, platform } = txt;
   if (typeof device_id !== "string" || device_id.length === 0) {
     throw new Error("mDNS TXT record missing device_id");
@@ -104,10 +117,12 @@ function parseTxtRecord(
   if (typeof alias !== "string") {
     throw new Error("mDNS TXT record missing alias");
   }
-  if (typeof platform !== "string") {
-    throw new Error("mDNS TXT record missing platform");
+  if (typeof platform !== "string" || !SUPPORTED_PLATFORMS.has(platform)) {
+    throw new Error(
+      `mDNS TXT record has invalid platform: ${String(platform)}`,
+    );
   }
-  return { device_id, alias, platform };
+  return { device_id, alias, platform: platform as Platform };
 }
 
 /**
@@ -155,6 +170,8 @@ export class MdnsDiscovery {
     if (this.started) return;
     // Wait for any in-flight stop to finish first.
     if (this.stopPromise) await this.stopPromise;
+    // Re-check after awaiting: a racing start() may have won while we waited,
+    // or stop() may have completed and set started=false.
     if (this.started) return;
     this.started = true;
 
@@ -171,13 +188,26 @@ export class MdnsDiscovery {
       }
 
       try {
-        await this.mdnsService.advertise(this.serviceName, payload.port, txt);
+        await this.mdnsService.advertise(
+          SERVICE_TYPE,
+          this.serviceName,
+          payload.port,
+          txt,
+        );
       } catch (error) {
         this.reportError(error);
       }
 
-      // Check if stopped during advertise
-      if (!this.started) return;
+      // If stop() ran while advertise() was in-flight, roll back the
+      // completed advertisement so the service isn't left visible.
+      if (!this.started) {
+        try {
+          await this.mdnsService.unpublish();
+        } catch {
+          // Best-effort rollback; non-fatal.
+        }
+        return;
+      }
 
       try {
         await this.mdnsService.browse(SERVICE_TYPE);
@@ -220,13 +250,14 @@ export class MdnsDiscovery {
 
   private handleServiceFound(service: {
     name: string;
-    host: string;
+    ipv4: string[];
+    ipv6: string[];
     port: number;
     txt: Record<string, string>;
   }): void {
     if (!this.started) return;
 
-    let parsed: { device_id: string; alias: string; platform: string };
+    let parsed: { device_id: string; alias: string; platform: Platform };
     try {
       parsed = parseTxtRecord(service.txt);
     } catch (error) {
@@ -242,12 +273,12 @@ export class MdnsDiscovery {
     const device: Device = {
       device_id: parsed.device_id,
       alias: parsed.alias,
-      platform: parsed.platform as Device["platform"],
+      platform: parsed.platform,
       interfaces: [
         {
           type: "Other",
-          ipv4: [service.host],
-          ipv6: [],
+          ipv4: service.ipv4,
+          ipv6: service.ipv6,
           preferred: true,
         },
       ],

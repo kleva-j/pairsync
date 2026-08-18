@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { DISCOVERY_PORT, SERVICE_TYPE } from "../protocol";
+import { DISCOVERY_PORT } from "../protocol";
 import { MdnsDiscovery } from "../discovery";
 import type { MdnsService, MdnsDiscoveryOptions } from "../discovery";
 import type { Device, HeartbeatPayload } from "../types";
 
 /** In-memory mDNS service implementing the platform contract. */
 class FakeMdnsService implements MdnsService {
-  advertised: Array<{ name: string; port: number; txt: Record<string, string> }> = [];
+  advertised: Array<{ serviceType: string; name: string; port: number; txt: Record<string, string> }> = [];
   browsed: string[] = [];
   unpublished = false;
   closed = false;
@@ -16,19 +16,21 @@ class FakeMdnsService implements MdnsService {
 
   private serviceFoundHandler?: (service: {
     name: string;
-    host: string;
+    ipv4: string[];
+    ipv6: string[];
     port: number;
     txt: Record<string, string>;
   }) => void;
   private serviceLostHandler?: (name: string) => void;
 
   async advertise(
+    serviceType: string,
     name: string,
     port: number,
     txt: Record<string, string>,
   ): Promise<void> {
     if (this.failAdvertise) throw new Error("advertise failed");
-    this.advertised.push({ name, port, txt });
+    this.advertised.push({ serviceType, name, port, txt });
   }
 
   async browse(serviceType: string): Promise<void> {
@@ -39,7 +41,8 @@ class FakeMdnsService implements MdnsService {
   onServiceFound(
     handler: (service: {
       name: string;
-      host: string;
+      ipv4: string[];
+      ipv6: string[];
       port: number;
       txt: Record<string, string>;
     }) => void,
@@ -63,7 +66,8 @@ class FakeMdnsService implements MdnsService {
   simulateServiceFound(
     service: {
       name: string;
-      host: string;
+      ipv4: string[];
+      ipv6: string[];
       port: number;
       txt: Record<string, string>;
     },
@@ -116,11 +120,12 @@ function setup(overrides?: Partial<MdnsDiscoveryOptions>) {
 }
 
 describe("MdnsDiscovery", () => {
-  it("advertises the local service on start", async () => {
+  it("advertises the local service with the correct service type", async () => {
     const { mdnsService, discovery } = setup();
     await discovery.start();
     expect(mdnsService.advertised).toHaveLength(1);
     expect(mdnsService.advertised[0]).toMatchObject({
+      serviceType: "_pairsync._tcp.local",
       port: DISCOVERY_PORT,
       txt: {
         device_id: "own-1",
@@ -135,7 +140,8 @@ describe("MdnsDiscovery", () => {
   it("starts browsing for _pairsync._tcp.local on start", async () => {
     const { mdnsService, discovery } = setup();
     await discovery.start();
-    expect(mdnsService.browsed).toEqual([SERVICE_TYPE]);
+    // Assert the literal to lock down the wire-critical service type
+    expect(mdnsService.browsed).toEqual(["_pairsync._tcp.local"]);
     await discovery.stop();
   });
 
@@ -144,7 +150,8 @@ describe("MdnsDiscovery", () => {
     await discovery.start();
     mdnsService.simulateServiceFound({
       name: "Peer Device",
-      host: "192.168.1.20",
+      ipv4: ["192.168.1.20"],
+      ipv6: [],
       port: DISCOVERY_PORT,
       txt: {
         device_id: "peer-1",
@@ -158,6 +165,7 @@ describe("MdnsDiscovery", () => {
       alias: "Peer",
       platform: "ios",
       port: DISCOVERY_PORT,
+      interfaces: [{ ipv4: ["192.168.1.20"], ipv6: [] }],
       last_seen_at: 1_000,
     });
     await discovery.stop();
@@ -168,7 +176,8 @@ describe("MdnsDiscovery", () => {
     await discovery.start();
     mdnsService.simulateServiceFound({
       name: "Peer Device",
-      host: "192.168.1.20",
+      ipv4: ["192.168.1.20"],
+      ipv6: [],
       port: DISCOVERY_PORT,
       txt: {
         device_id: "peer-1",
@@ -186,7 +195,8 @@ describe("MdnsDiscovery", () => {
     await discovery.start();
     mdnsService.simulateServiceFound({
       name: "Own Device",
-      host: "192.168.1.10",
+      ipv4: ["192.168.1.10"],
+      ipv6: [],
       port: DISCOVERY_PORT,
       txt: {
         device_id: "own-1",
@@ -198,21 +208,86 @@ describe("MdnsDiscovery", () => {
     await discovery.stop();
   });
 
-  it("reports malformed service records without crashing", async () => {
-    const { mdnsService, discovery, errors, seen } = setup();
+  it("reports missing device_id without crashing", async () => {
+    const { mdnsService, discovery, errors } = setup();
     await discovery.start();
-    // Missing required fields
     mdnsService.simulateServiceFound({
       name: "Bad Device",
-      host: "192.168.1.30",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
       port: DISCOVERY_PORT,
-      txt: {}, // missing device_id
+      txt: { alias: "Foo", platform: "ios" }, // missing device_id
     });
     expect(errors).toHaveLength(1);
-    // Engine still works afterwards
+    expect(errors[0]).toBeInstanceOf(Error);
+    expect((errors[0] as Error).message).toContain("device_id");
+    await discovery.stop();
+  });
+
+  it("reports missing alias without crashing", async () => {
+    const { mdnsService, discovery, errors } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Bad Device",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: { device_id: "peer-x", platform: "ios" }, // missing alias
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(Error);
+    expect((errors[0] as Error).message).toContain("alias");
+    await discovery.stop();
+  });
+
+  it("reports missing/invalid platform without crashing", async () => {
+    const { mdnsService, discovery, errors } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Bad Device",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: { device_id: "peer-y", alias: "Bar" }, // missing platform
+    });
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toBeInstanceOf(Error);
+    expect((errors[0] as Error).message).toContain("platform");
+    await discovery.stop();
+  });
+
+  it("rejects unsupported platform values", async () => {
+    const { mdnsService, discovery, errors } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Bad Platform",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: { device_id: "peer-z", alias: "Baz", platform: "beos" },
+    });
+    expect(errors).toHaveLength(1);
+    expect((errors[0] as Error).message).toContain("beos");
+    await discovery.stop();
+  });
+
+  it("engine continues after malformed records", async () => {
+    const { mdnsService, discovery, errors, seen } = setup();
+    await discovery.start();
+    // First record: missing device_id
+    mdnsService.simulateServiceFound({
+      name: "Bad Device",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: {},
+    });
+    expect(errors).toHaveLength(1);
+    // Second record: valid — engine still works
     mdnsService.simulateServiceFound({
       name: "Good Device",
-      host: "192.168.1.40",
+      ipv4: ["192.168.1.40"],
+      ipv6: [],
       port: DISCOVERY_PORT,
       txt: {
         device_id: "peer-2",
@@ -230,7 +305,7 @@ describe("MdnsDiscovery", () => {
     await discovery.start();
     expect(errors).toHaveLength(1);
     // Browse still started
-    expect(mdnsService.browsed).toEqual([SERVICE_TYPE]);
+    expect(mdnsService.browsed).toEqual(["_pairsync._tcp.local"]);
     await discovery.stop();
   });
 
@@ -258,7 +333,10 @@ describe("MdnsDiscovery", () => {
     await discovery.stop();
     await discovery.start();
     expect(mdnsService.advertised).toHaveLength(2);
-    expect(mdnsService.browsed).toEqual([SERVICE_TYPE, SERVICE_TYPE]);
+    expect(mdnsService.browsed).toEqual([
+      "_pairsync._tcp.local",
+      "_pairsync._tcp.local",
+    ]);
     await discovery.stop();
   });
 
@@ -266,7 +344,8 @@ describe("MdnsDiscovery", () => {
     const { mdnsService, discovery, seen } = setup();
     const peerService = {
       name: "Peer Device",
-      host: "192.168.1.20",
+      ipv4: ["192.168.1.20"],
+      ipv6: [],
       port: DISCOVERY_PORT,
       txt: {
         device_id: "peer-1",
@@ -291,7 +370,7 @@ describe("MdnsDiscovery", () => {
     const { mdnsService, discovery } = setup();
     await Promise.all([discovery.start(), discovery.start()]);
     expect(mdnsService.advertised).toHaveLength(1);
-    expect(mdnsService.browsed).toEqual([SERVICE_TYPE]);
+    expect(mdnsService.browsed).toEqual(["_pairsync._tcp.local"]);
     await discovery.stop();
   });
 
@@ -330,6 +409,78 @@ describe("MdnsDiscovery", () => {
     expect(mdnsService.advertised[0]!.txt.cert_fingerprint).toBe(
       "AA:BB:CC:DD:EE:FF",
     );
+    await discovery.stop();
+  });
+
+  it("passes dual-stack addresses from adapter to device interfaces", async () => {
+    const { mdnsService, discovery, seen } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Dual-Stack Peer",
+      ipv4: ["192.168.1.20"],
+      ipv6: ["fe80::1"],
+      port: DISCOVERY_PORT,
+      txt: {
+        device_id: "peer-dual",
+        alias: "Dual Peer",
+        platform: "linux",
+      },
+    });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.interfaces[0]!.ipv4).toEqual(["192.168.1.20"]);
+    expect(seen[0]!.interfaces[0]!.ipv6).toEqual(["fe80::1"]);
+    await discovery.stop();
+  });
+
+  it("rollbacks advertisement if stop() runs during advertise()", async () => {
+    const { mdnsService, discovery } = setup();
+    let releaseAdvertise!: () => void;
+    const advertisePending = new Promise<void>((resolve) => {
+      releaseAdvertise = resolve;
+    });
+
+    // Patch the fake to block on advertise
+    const origAdvertise = mdnsService.advertise.bind(mdnsService);
+    mdnsService.advertise = async (st, name, port, txt) => {
+      await advertisePending;
+      await origAdvertise(st, name, port, txt);
+    };
+
+    const startPromise = discovery.start(); // blocked on advertise
+    await discovery.stop(); // stops while advertise is in-flight
+    releaseAdvertise();
+    await startPromise;
+
+    // Service was advertised but then unpublished by the rollback
+    expect(mdnsService.advertised).toHaveLength(1);
+    expect(mdnsService.unpublished).toBe(true);
+  });
+
+  it("start() during an in-flight stop() waits and restarts cleanly", async () => {
+    const { mdnsService, discovery } = setup();
+    await discovery.start();
+    let releaseClose!: () => void;
+    const closePending = new Promise<void>((resolve) => {
+      releaseClose = resolve;
+    });
+
+    const origClose = mdnsService.close.bind(mdnsService);
+    mdnsService.close = async () => {
+      await closePending;
+      await origClose();
+    };
+
+    const stopPromise = discovery.stop(); // blocked on close
+    const startPromise = discovery.start(); // must wait for stop
+    releaseClose();
+    await stopPromise;
+    await startPromise;
+
+    expect(mdnsService.advertised).toHaveLength(2);
+    expect(mdnsService.browsed).toEqual([
+      "_pairsync._tcp.local",
+      "_pairsync._tcp.local",
+    ]);
     await discovery.stop();
   });
 });
