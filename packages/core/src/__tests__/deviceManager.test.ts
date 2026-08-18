@@ -184,7 +184,7 @@ describe("DeviceManager", () => {
     vi.useRealTimers();
   });
 
-  it("clear() cancels all pending timeouts", () => {
+  it("clear() cancels all pending timeouts and fires onDeviceRemoved for each", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
     const manager = new DeviceManager({
@@ -195,8 +195,11 @@ describe("DeviceManager", () => {
     manager.addOrUpdate(peerDevice("peer-2"));
     manager.clear();
 
+    // clear() fires onDeviceRemoved for each device
+    expect(removed).toEqual(["peer-1", "peer-2"]);
+    // Timers were cancelled — no double-firing
     vi.advanceTimersByTime(HEARTBEAT_TIMEOUT + 1);
-    expect(removed).toHaveLength(0); // no removals — timers were cleared
+    expect(removed).toEqual(["peer-1", "peer-2"]); // no extra removals
     vi.useRealTimers();
   });
 

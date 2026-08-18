@@ -103,12 +103,17 @@ export class DeviceManager {
     return this.devices.get(deviceId);
   }
 
-  /** Removes all devices and cancels all pending timers. */
+  /** Removes all devices and cancels all pending timers. Fires `onDeviceRemoved` for each. */
   clear(): void {
-    for (const id of this.timers.keys()) {
+    // Collect ids first — onDeviceRemoved callbacks may mutate the maps.
+    const ids = Array.from(this.devices.keys());
+    for (const id of ids) {
       this.cancelTimer(id);
     }
     this.devices.clear();
+    for (const id of ids) {
+      this.onDeviceRemoved?.(id);
+    }
   }
 
   // ── Private ───────────────────────────────────────────────────────
@@ -119,6 +124,8 @@ export class DeviceManager {
     this.timers.set(
       deviceId,
       setTimeout(() => {
+        // Delete the handle first so a re-entrant addOrUpdate (triggered by
+        // onDeviceRemoved below) arms a fresh timer without confusion.
         this.timers.delete(deviceId);
         // Only remove if still tracked (a concurrent remove/clear may have
         // run before this callback).
