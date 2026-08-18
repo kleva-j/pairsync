@@ -9,6 +9,9 @@
 /** Protocol version (MAJOR.MINOR scheme) shared by every platform. */
 export const PROTOCOL_VERSION = "1.0";
 
+/** mDNS service type for PairSync discovery. */
+export const SERVICE_TYPE = "_pairsync._tcp.local";
+
 /** Custom UDP multicast discovery port (distinct from standard mDNS, port 5353). */
 export const DISCOVERY_PORT = 53_350;
 

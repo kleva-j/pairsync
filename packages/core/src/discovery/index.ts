@@ -9,3 +9,6 @@ export type {
   DiscoveryScheduler,
   MulticastDiscoveryOptions,
 } from "./udp";
+
+export { MdnsDiscovery } from "./mdns";
+export type { MdnsService, MdnsDiscoveryOptions } from "./mdns";
