@@ -35,6 +35,13 @@ export class DeviceManager {
   private readonly onDeviceRemoved?: (deviceId: string) => void;
 
   constructor(options: DeviceManagerOptions = {}) {
+    if (options.timeoutMs !== undefined) {
+      if (!Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0) {
+        throw new RangeError(
+          `timeoutMs must be a positive finite number, got ${options.timeoutMs}`,
+        );
+      }
+    }
     this.timeoutMs = options.timeoutMs ?? HEARTBEAT_TIMEOUT;
     this.onDeviceAdded = options.onDeviceAdded;
     this.onDeviceUpdated = options.onDeviceUpdated;

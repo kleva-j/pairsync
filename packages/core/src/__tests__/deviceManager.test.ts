@@ -251,6 +251,13 @@ describe("DeviceManager", () => {
     expect(manager.size).toBe(0);
   });
 
+  it("rejects invalid timeoutMs values", () => {
+    expect(() => new DeviceManager({ timeoutMs: 0 })).toThrow(RangeError);
+    expect(() => new DeviceManager({ timeoutMs: -1 })).toThrow(RangeError);
+    expect(() => new DeviceManager({ timeoutMs: NaN })).toThrow(RangeError);
+    expect(() => new DeviceManager({ timeoutMs: Infinity })).toThrow(RangeError);
+  });
+
   it("configurable timeout", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
