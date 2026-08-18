@@ -89,7 +89,7 @@ export class DeviceManager {
     // stored object so callers always get a fresh reference (no in-place mutation).
     this.devices.set(device.device_id, {
       ...existing,
-      last_seen_at: device.last_seen_at,
+      last_seen_at: device.last_seen_at ?? existing.last_seen_at,
     });
     this.armTimer(device.device_id);
     return false;
@@ -116,11 +116,10 @@ export class DeviceManager {
 
   /** Removes all devices and cancels all pending timers. */
   clear(): void {
-    // Snapshot keys before iterating: cancelTimer calls timers.delete(), and
-    // mutating a Map while iterating its keys() is spec-undefined behaviour.
-    for (const id of [...this.timers.keys()]) {
-      this.cancelTimer(id);
+    for (const timer of this.timers.values()) {
+      clearTimeout(timer);
     }
+    this.timers.clear();
     const ids = Array.from(this.devices.keys());
     this.devices.clear();
     for (const id of ids) {
