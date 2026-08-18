@@ -62,6 +62,45 @@ describe("DeviceManager", () => {
     expect(result).toBe(false);
   });
 
+  it("replaces the stored device object on no-op re-discovery without in-place mutation of the old reference", () => {
+    const manager = new DeviceManager();
+    const device = peerDevice();
+    manager.addOrUpdate(device);
+
+    const firstStoredReference = manager.getDevice("peer-1")!;
+    expect(firstStoredReference.last_seen_at).toBe(1_000);
+
+    // Call addOrUpdate with a different timestamp but identical data
+    const result = manager.addOrUpdate({ ...device, last_seen_at: 2_000 });
+    expect(result).toBe(false);
+
+    // The old reference must remain unchanged (no in-place mutation)
+    expect(firstStoredReference.last_seen_at).toBe(1_000);
+
+    // getDevice() should return a new object with the updated timestamp
+    const secondStoredReference = manager.getDevice("peer-1")!;
+    expect(secondStoredReference).not.toBe(firstStoredReference);
+    expect(secondStoredReference.last_seen_at).toBe(2_000);
+  });
+
+  it("preserves last_seen_at when the incoming device has an undefined last_seen_at during no-op update", () => {
+    const manager = new DeviceManager();
+    const device = peerDevice();
+    manager.addOrUpdate(device);
+
+    const firstStoredReference = manager.getDevice("peer-1")!;
+    expect(firstStoredReference.last_seen_at).toBe(1_000);
+
+    // Call addOrUpdate with undefined last_seen_at
+    const result = manager.addOrUpdate({ ...device, last_seen_at: undefined });
+    expect(result).toBe(false);
+
+    // getDevice() should return a new object but keep the existing last_seen_at
+    const secondStoredReference = manager.getDevice("peer-1")!;
+    expect(secondStoredReference).not.toBe(firstStoredReference);
+    expect(secondStoredReference.last_seen_at).toBe(1_000);
+  });
+
   it("removes a device by id", () => {
     const manager = new DeviceManager();
     manager.addOrUpdate(peerDevice("peer-1"));

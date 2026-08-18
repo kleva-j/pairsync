@@ -196,11 +196,13 @@ export function buildPrepareRequest(msg: PrepareRequest): string {
 
 /** Receiver → sender preparation response. */
 export function buildPrepareResponse(msg: PrepareResponse): string {
+  // Discriminator last so a runtime payload can never override the wire type.
   return JSON.stringify({ ...msg, type: MESSAGE_TYPES.PREPARE_RESPONSE });
 }
 
 /** Receiver asks the sender for specific chunks (resume / retry). */
 export function buildChunkRequest(msg: ChunkRequest): string {
+  // Discriminator last so a runtime payload can never override the wire type.
   return JSON.stringify({ ...msg, type: MESSAGE_TYPES.CHUNK_REQUEST });
 }
 
@@ -216,6 +218,7 @@ export function buildChunkResponse(msg: ChunkResponse): string {
 
 /** Resume handshake: the bitmap of chunks the receiver already has. */
 export function buildResumeRequest(msg: ResumeRequest): string {
+  // Discriminator last so a runtime payload can never override the wire type.
   return JSON.stringify({ ...msg, type: MESSAGE_TYPES.RESUME });
 }
 

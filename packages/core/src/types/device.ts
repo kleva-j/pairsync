@@ -1,12 +1,20 @@
+/**
+ * All valid runtime platform strings — the single source of truth for both
+ * the {@link Platform} union and any runtime validators (Zod schemas, TXT
+ * record parsers) that need to check against the full set.
+ */
+export const PLATFORM_VALUES = [
+  "ios",
+  "android",
+  "macos",
+  "windows",
+  "linux",
+  "web",
+  "unknown",
+] as const;
+
 /** Runtime platforms a PairSync device can run on. */
-export type Platform =
-  | "ios"
-  | "android"
-  | "macos"
-  | "windows"
-  | "linux"
-  | "web"
-  | "unknown";
+export type Platform = (typeof PLATFORM_VALUES)[number];
 
 /** A network interface advertised by a device in its heartbeat. */
 export interface NetworkInterface {
