@@ -108,8 +108,11 @@ export interface MdnsDiscoveryOptions {
  * Returns the validated device info or throws if the record is malformed.
  */
 function parseTxtRecord(
-  txt: Record<string, string>,
+  txt: Record<string, string> | undefined | null,
 ): { device_id: string; alias: string; platform: Platform } {
+  if (!txt || typeof txt !== "object") {
+    throw new Error("mDNS TXT record is empty or missing");
+  }
   const { device_id, alias, platform } = txt;
   if (typeof device_id !== "string" || device_id.length === 0) {
     throw new Error("mDNS TXT record missing device_id");
@@ -232,6 +235,15 @@ export class MdnsDiscovery {
     this.started = false;
 
     const run = (async () => {
+      // Wait for any in-flight start to finish so close() is always the
+      // final adapter call (avoids unpublish/close racing advertise).
+      if (this.startPromise) {
+        try {
+          await this.startPromise;
+        } catch {
+          // Ignore start errors during stop — we are tearing down anyway.
+        }
+      }
       try {
         await this.mdnsService.unpublish();
       } catch (error) {
@@ -311,7 +323,13 @@ export class MdnsDiscovery {
     }
 
     this.serviceNameToDeviceId.delete(name);
-    this.onDeviceLost?.(deviceId);
+
+    // Only notify when the device has no remaining service names (e.g.
+    // a device advertising via multiple interfaces or during rename).
+    const stillExists = Array.from(this.serviceNameToDeviceId.values()).includes(deviceId);
+    if (!stillExists) {
+      this.onDeviceLost?.(deviceId);
+    }
   }
 
   private reportError(error: unknown): void {

@@ -461,6 +461,52 @@ describe("MdnsDiscovery", () => {
     await discovery.stop();
   });
 
+  it("reports null/undefined TXT record without crashing", async () => {
+    const { mdnsService, discovery, errors } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Null TXT",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: null as unknown as Record<string, string>,
+    });
+    expect(errors).toHaveLength(1);
+    expect((errors[0] as Error).message).toContain("empty or missing");
+    await discovery.stop();
+  });
+
+  it("does not report onDeviceLost until all service names for a device are gone", async () => {
+    const { mdnsService, discovery, lost } = setup();
+    await discovery.start();
+
+    // Same device discovered under two service names (e.g. dual interfaces)
+    mdnsService.simulateServiceFound({
+      name: "peer-iface-1",
+      ipv4: ["192.168.1.20"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: { device_id: "peer-1", alias: "Peer", platform: "ios" },
+    });
+    mdnsService.simulateServiceFound({
+      name: "peer-iface-2",
+      ipv4: ["192.168.1.21"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: { device_id: "peer-1", alias: "Peer", platform: "ios" },
+    });
+
+    // Lose first service — device still reachable via the second
+    mdnsService.simulateServiceLost("peer-iface-1");
+    expect(lost).toEqual([]);
+
+    // Lose second — now the device is truly gone
+    mdnsService.simulateServiceLost("peer-iface-2");
+    expect(lost).toEqual(["peer-1"]);
+
+    await discovery.stop();
+  });
+
   it("rollbacks advertisement if stop() runs during advertise()", async () => {
     const { mdnsService, discovery } = setup();
     let releaseAdvertise!: () => void;
@@ -476,12 +522,36 @@ describe("MdnsDiscovery", () => {
     };
 
     const startPromise = discovery.start(); // blocked on advertise
-    await discovery.stop(); // stops while advertise is in-flight
-    releaseAdvertise();
+    const stopPromise = discovery.stop();   // queues behind startPromise
+    releaseAdvertise();                     // unblocks advertise -> rollback
     await startPromise;
+    await stopPromise;
 
     // Service was advertised but then unpublished by the rollback
     expect(mdnsService.advertised).toHaveLength(1);
+    expect(mdnsService.unpublished).toBe(true);
+  });
+
+  it("stop() during in-flight start() waits for start to finish before closing", async () => {
+    const { mdnsService, discovery } = setup();
+    let releaseAdvertise!: () => void;
+    const advertisePending = new Promise<void>((resolve) => {
+      releaseAdvertise = resolve;
+    });
+    const origAdvertise = mdnsService.advertise.bind(mdnsService);
+    mdnsService.advertise = async (st, name, port, txt) => {
+      await advertisePending;
+      await origAdvertise(st, name, port, txt);
+    };
+
+    const startPromise = discovery.start(); // blocked on advertise
+    const stopPromise = discovery.stop();   // should wait for start
+    releaseAdvertise();
+    await startPromise;
+    await stopPromise;
+
+    // close() ran after advertise() resolved (not before)
+    expect(mdnsService.closed).toBe(true);
     expect(mdnsService.unpublished).toBe(true);
   });
 
