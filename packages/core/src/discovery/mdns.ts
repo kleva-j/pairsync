@@ -199,7 +199,10 @@ export class MdnsDiscovery {
       }
 
       // If stop() ran while advertise() was in-flight, roll back the
-      // completed advertisement so the service isn't left visible.
+      // completed advertisement so the service isn't left visible. Note:
+      // stop() may also call unpublish() concurrently — double-unpublish
+      // is harmless (idempotent) and the rollback is necessary to cover
+      // the case where stop()'s unpublish ran before advertise() returned.
       if (!this.started) {
         try {
           await this.mdnsService.unpublish();
@@ -297,7 +300,15 @@ export class MdnsDiscovery {
     if (!this.started) return;
 
     const deviceId = this.serviceNameToDeviceId.get(name);
-    if (deviceId === undefined) return;
+    if (deviceId === undefined) {
+      // Adapter reported a loss for a service we never saw — likely a bug
+      // in the adapter or an out-of-order found/lost pair. Surface it so
+      // callers can debug, but don't crash discovery.
+      this.reportError(
+        new Error(`mDNS service lost for unknown service: ${name}`),
+      );
+      return;
+    }
 
     this.serviceNameToDeviceId.delete(name);
     this.onDeviceLost?.(deviceId);

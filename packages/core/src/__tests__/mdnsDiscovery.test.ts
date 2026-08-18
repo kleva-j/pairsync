@@ -190,6 +190,35 @@ describe("MdnsDiscovery", () => {
     await discovery.stop();
   });
 
+  it("reports error when a lost service was never seen", async () => {
+    const { mdnsService, discovery, lost, errors } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceLost("nonexistent-service");
+    expect(lost).toEqual([]);
+    expect(errors).toHaveLength(1);
+    expect((errors[0] as Error).message).toContain("nonexistent-service");
+    await discovery.stop();
+  });
+
+  it("ignores service lost after stop", async () => {
+    const { mdnsService, discovery, lost } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Peer Device",
+      ipv4: ["192.168.1.20"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: {
+        device_id: "peer-1",
+        alias: "Peer",
+        platform: "ios",
+      },
+    });
+    await discovery.stop();
+    mdnsService.simulateServiceLost("Peer Device");
+    expect(lost).toEqual([]);
+  });
+
   it("ignores its own service advertisement", async () => {
     const { mdnsService, discovery, seen } = setup();
     await discovery.start();
