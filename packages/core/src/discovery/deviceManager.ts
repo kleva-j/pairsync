@@ -85,8 +85,12 @@ export class DeviceManager {
       return true;
     }
 
-    // Only last_seen_at or identical data — just re-arm the timer
-    existing.last_seen_at = device.last_seen_at;
+    // Only last_seen_at or identical data — re-arm the timer and replace the
+    // stored object so callers always get a fresh reference (no in-place mutation).
+    this.devices.set(device.device_id, {
+      ...existing,
+      last_seen_at: device.last_seen_at,
+    });
     this.armTimer(device.device_id);
     return false;
   }
@@ -110,13 +114,14 @@ export class DeviceManager {
     return this.devices.get(deviceId);
   }
 
-  /** Removes all devices and cancels all pending timers. Fires `onDeviceRemoved` for each. */
+  /** Removes all devices and cancels all pending timers. */
   clear(): void {
-    // Collect ids first — onDeviceRemoved callbacks may mutate the maps.
-    const ids = Array.from(this.devices.keys());
-    for (const id of ids) {
+    // Snapshot keys before iterating: cancelTimer calls timers.delete(), and
+    // mutating a Map while iterating its keys() is spec-undefined behaviour.
+    for (const id of [...this.timers.keys()]) {
       this.cancelTimer(id);
     }
+    const ids = Array.from(this.devices.keys());
     this.devices.clear();
     for (const id of ids) {
       this.onDeviceRemoved?.(id);
@@ -164,7 +169,8 @@ export class DeviceManager {
       existing.platform !== incoming.platform ||
       existing.port !== incoming.port ||
       existing.cert_fingerprint !== incoming.cert_fingerprint ||
-      JSON.stringify(existing.interfaces) !== JSON.stringify(incoming.interfaces)
+      JSON.stringify(existing.interfaces) !==
+        JSON.stringify(incoming.interfaces)
     );
   }
 }

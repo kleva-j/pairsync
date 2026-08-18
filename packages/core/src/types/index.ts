@@ -1,3 +1,4 @@
+export { PLATFORM_VALUES } from "./device";
 export type { Platform, NetworkInterface, Device } from "./device";
 export type {
   TransferState,

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT } from "../constants";
 import { MESSAGE_TYPES } from "../protocol";
+import { PLATFORM_VALUES } from "../types";
 import type { HeartbeatPayload } from "../types";
 
 /**
@@ -24,7 +25,7 @@ export const heartbeatSchema = z.object({
   type: z.literal(MESSAGE_TYPES.HEARTBEAT),
   device_id: z.string().min(1),
   alias: z.string(),
-  platform: z.enum(["ios", "android", "macos", "windows", "linux", "web", "unknown"]),
+  platform: z.enum(PLATFORM_VALUES),
   interfaces: z.array(
     z.object({
       type: z.enum(["Wi-Fi", "Ethernet", "Cellular", "Other"]),

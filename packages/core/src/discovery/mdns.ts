@@ -1,4 +1,5 @@
 import { SERVICE_TYPE, PROTOCOL_VERSION } from "../protocol";
+import { PLATFORM_VALUES } from "../types";
 import type { Device, HeartbeatPayload, Platform } from "../types";
 
 /**
@@ -18,17 +19,6 @@ import type { Device, HeartbeatPayload, Platform } from "../types";
  * entirely and fall back to manual IP entry (Tier 3).
  */
 
-/** Set of supported platform values (mirrors the `Platform` union). */
-const SUPPORTED_PLATFORMS: ReadonlySet<string> = new Set<Platform>([
-  "ios",
-  "android",
-  "macos",
-  "windows",
-  "linux",
-  "web",
-  "unknown",
-]);
-
 /** Platform mDNS service contract. Implemented by each app's adapter. */
 export interface MdnsService {
   /**
@@ -38,7 +28,12 @@ export interface MdnsService {
    * @param port - The port the service listens on
    * @param txt - TXT record key-value pairs
    */
-  advertise(serviceType: string, name: string, port: number, txt: Record<string, string>): Promise<void>;
+  advertise(
+    serviceType: string,
+    name: string,
+    port: number,
+    txt: Record<string, string>,
+  ): Promise<void>;
 
   /**
    * Starts browsing for services of the given type.
@@ -107,9 +102,11 @@ export interface MdnsDiscoveryOptions {
  * Validates a parsed TXT record for the minimum required fields.
  * Returns the validated device info or throws if the record is malformed.
  */
-function parseTxtRecord(
-  txt: Record<string, string> | undefined | null,
-): { device_id: string; alias: string; platform: Platform } {
+function parseTxtRecord(txt: Record<string, string> | undefined | null): {
+  device_id: string;
+  alias: string;
+  platform: Platform;
+} {
   if (!txt || typeof txt !== "object") {
     throw new Error("mDNS TXT record is empty or missing");
   }
@@ -120,7 +117,10 @@ function parseTxtRecord(
   if (typeof alias !== "string") {
     throw new Error("mDNS TXT record missing alias");
   }
-  if (typeof platform !== "string" || !SUPPORTED_PLATFORMS.has(platform)) {
+  if (
+    typeof platform !== "string" ||
+    !(PLATFORM_VALUES as readonly string[]).includes(platform)
+  ) {
     throw new Error(
       `mDNS TXT record has invalid platform: ${String(platform)}`,
     );
@@ -154,8 +154,7 @@ export class MdnsDiscovery {
     this.mdnsService = options.mdnsService;
     this.heartbeat = options.heartbeat;
     this.ownDeviceId = this.heartbeat().device_id;
-    this.serviceName =
-      options.serviceName ?? `pairsync-${this.ownDeviceId}`;
+    this.serviceName = options.serviceName ?? `pairsync-${this.ownDeviceId}`;
     this.now = options.now ?? (() => Date.now());
     this.onDeviceSeen = options.onDeviceSeen;
     this.onDeviceLost = options.onDeviceLost;
@@ -163,7 +162,9 @@ export class MdnsDiscovery {
 
     // Register handlers upfront — the started guard in the callbacks ensures
     // events are only surfaced while the engine is running.
-    this.mdnsService.onServiceFound((service) => this.handleServiceFound(service));
+    this.mdnsService.onServiceFound((service) =>
+      this.handleServiceFound(service),
+    );
     this.mdnsService.onServiceLost((name) => this.handleServiceLost(name));
   }
 
@@ -326,7 +327,9 @@ export class MdnsDiscovery {
 
     // Only notify when the device has no remaining service names (e.g.
     // a device advertising via multiple interfaces or during rename).
-    const stillExists = Array.from(this.serviceNameToDeviceId.values()).includes(deviceId);
+    const stillExists = Array.from(
+      this.serviceNameToDeviceId.values(),
+    ).includes(deviceId);
     if (!stillExists) {
       this.onDeviceLost?.(deviceId);
     }
