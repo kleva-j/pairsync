@@ -12,3 +12,6 @@ export type {
 
 export { MdnsDiscovery } from "./mdns";
 export type { MdnsService, MdnsDiscoveryOptions } from "./mdns";
+
+export { DeviceManager } from "./deviceManager";
+export type { DeviceManagerOptions } from "./deviceManager";
