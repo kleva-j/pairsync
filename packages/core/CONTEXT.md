@@ -10,7 +10,7 @@
 
 The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic, interface selection, the UDP multicast discovery engine, and the mDNS discovery engine are implemented and unit-tested. **Phase 1 (Core Infrastructure) is complete; Phase 2.1 and 2.2 (UDP multicast + mDNS discovery) are done.** Still **Planned**: manual IP fallback, connection initiation, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 2+.
+> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic, interface selection, the UDP multicast discovery engine, the mDNS discovery engine, device list management, and TCP connection initiation are implemented and unit-tested. **Phase 1 (Core Infrastructure) is complete; Phase 2.1–2.4 (UDP multicast, mDNS, device list, connection initiation) are done.** Still **Planned**: manual IP fallback, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 2+.
 
 ## Current Structure
 
@@ -42,6 +42,7 @@ packages/core/
 │   │   ├── udp.ts         # MulticastDiscovery engine + MulticastSocket contract (2.1)
 │   │   ├── mdns.ts        # MdnsDiscovery engine + MdnsService contract (2.2)
 │   │   ├── deviceManager.ts # DeviceManager: add/update/remove with timeout expiry (2.3)
+│   │   ├── connection.ts  # ConnectionInitiator: TCP establishment w/ timeout + backoff (2.4)
 │   │   └── index.ts
 │   └── __tests__/         # Vitest: constants, protocol constants, machines, platform, heartbeat, discovery
 ├── package.json           # @pairsync/core — exports "./src/index.ts", test script
@@ -62,7 +63,7 @@ Import as `import { Device, CHUNK_SIZE, isMobile } from "@pairsync/core";` — t
 |------------|--------|---------|
 | `xstate` | ✅ Installed (used) | XState v5 machines: device, discovery, transfer (Phase 1.1) |
 | `zod` | ✅ Installed (used) | Heartbeat datagram schema (`heartbeatSchema`, Phase 1.6) + wire-message schemas (`prepare/chunk/resume`, Phase 1.2) |
-| `vitest` | ✅ devDep | Unit tests (203 passing) |
+| `vitest` | ✅ devDep | Unit tests (222 passing) |
 
 Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
 
@@ -81,7 +82,8 @@ Platform-specific crypto/networking libraries live in the **apps**, not core —
 | UDP multicast discovery engine (MulticastDiscovery + MulticastSocket contract) | Phase 2 (2.1) | ✅ Implemented + tested |
 | mDNS discovery engine (MdnsDiscovery + MdnsService contract) | Phase 2 (2.2) | ✅ Implemented + tested |
 | Device list management (DeviceManager: add/update/remove, timeout expiry, deduplication) | Phase 2 (2.3) | ✅ Implemented + tested |
-| Manual IP fallback, connection initiation | Phase 2 | 🚧 Planned |
+| Connection initiation (ConnectionInitiator: TCP connect, per-attempt timeout, backoff, typed errors) | Phase 2 (2.4) | ✅ Implemented + tested |
+| Manual IP fallback | Phase 2 | 🚧 Planned |
 | SQLite database setup + schema | Phase 2 | 🚧 Planned |
 | Transfer engine (prepare, chunked upload/download, resume, verify, queue) | Phase 3 | 🚧 Planned |
 | Clipboard + folder transfers | Phase 3 | 🚧 Planned |
@@ -180,7 +182,7 @@ X-Cert-Fingerprint: <SHA-256 of sender's cert>
 
 ## Testing
 
-Vitest is configured (`test: vitest run`). 203 unit tests pass covering protocol constants (version/ports/headers/message types), the zod wire-message schemas and builders (prepare/chunk/resume round-trips, field validation, canonical SHA-256 digest validation, chunk-layout consistency, RFC 4648 base64 chunk encoding/decoding with known vectors and a runtime fallback, discriminator pinning, unknown-discriminator rejection, discriminated-union dispatch), shared constants (timeouts/sizes), the three XState machines (every state/transition/guard, including device loss, retry caps, resume caps, zero-chunk transfers, timeout-cleared-on-exit, and ignored events in the wrong state), platform detection (node/web/mobile/desktop via stubbed globals), the heartbeat module (build/parse validation, missed-heartbeat counting, tracker expiry with an injected clock), interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff schedule), UDP multicast discovery (group joins, immediate + interval sends, fresh heartbeat payloads, own-echo dedupe, malformed-datagram tolerance, send/join failure recovery, stop cleanup, concurrent start/stop guards, stop-during-start membership rollback, start-during-stop serialization, overlapping-tick dropping, lifecycle-gated receive, restart — over an in-memory socket), mDNS discovery (service advertisement/browsing, own-service dedupe, service-loss callbacks, TXT record validation, advertise/browse failure recovery, stop cleanup, concurrent start/stop guards, lifecycle-gated callbacks, restart — over an in-memory mDNS service), and device list management (add/update/remove with deduplication by device_id, configurable timeout expiry with re-arm on re-discovery, explicit removal, lifecycle callbacks, multi-device independence — over an in-memory device list). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
+Vitest is configured (`test: vitest run`). 223 unit tests pass covering protocol constants (version/ports/headers/message types), the zod wire-message schemas and builders (prepare/chunk/resume round-trips, field validation, canonical SHA-256 digest validation, chunk-layout consistency, RFC 4648 base64 chunk encoding/decoding with known vectors and a runtime fallback, discriminator pinning, unknown-discriminator rejection, discriminated-union dispatch), shared constants (timeouts/sizes), the three XState machines (every state/transition/guard, including device loss, retry caps, resume caps, zero-chunk transfers, timeout-cleared-on-exit, and ignored events in the wrong state), platform detection (node/web/mobile/desktop via stubbed globals), the heartbeat module (build/parse validation, missed-heartbeat counting, tracker expiry with an injected clock), interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff schedule), UDP multicast discovery (group joins, immediate + interval sends, fresh heartbeat payloads, own-echo dedupe, malformed-datagram tolerance, send/join failure recovery, stop cleanup, concurrent start/stop guards, stop-during-start membership rollback, start-during-stop serialization, overlapping-tick dropping, lifecycle-gated receive, restart — over an in-memory socket), mDNS discovery (service advertisement/browsing, own-service dedupe, service-loss callbacks, TXT record validation, advertise/browse failure recovery, stop cleanup, concurrent start/stop guards, lifecycle-gated callbacks, restart — over an in-memory mDNS service), device list management (add/update/remove with deduplication by device_id, configurable timeout expiry with re-arm on re-discovery, explicit removal, lifecycle callbacks, multi-device independence — over an in-memory device list), and connection initiation (success path with best-candidate ordering and heartbeat-port fallback, default-port fallback across unusable advertised ports, multi-candidate fallback with 1s/2s backoff and custom base, custom clock, per-attempt timeout with socket reset, timeout recovery onto the next candidate, terminal timeout classification, all-refused `connect_failed` with per-attempt `onError`, `no_candidates` for empty and unreachable interfaces, option validation, close delegation, per-connect socket isolation — over an in-memory TCP socket). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
 
 ## ADRs
 

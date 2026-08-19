@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { assertPositive } from "../utils";
 import type { NetworkInterface } from "../types";
 
 /**
@@ -71,13 +72,6 @@ export const ADDRESS_FAMILY_PRIORITY = Object.freeze({
 
 /** Adapter names never advertised or selected (VPN tunnels, loopback). */
 const EXCLUDED_INTERFACE_NAMES = /^(lo|tun|tap|ppp|utun|wg|ipsec|vpn)\d*$/i;
-
-/** Guards arithmetic against nonsensical inputs. */
-function assertPositive(name: string, value: number): void {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`${name} must be a positive finite number, got ${value}`);
-  }
-}
 
 function parseIpv4(ip: string): number[] | null {
   const parts = ip.split(".");
