@@ -13,11 +13,17 @@ class FakeSocket implements TcpSocket {
   hangHosts = new Set<string>();
   connected = false;
   closeCount = 0;
+  private readonly pendingHangs: Array<{
+    reject: (error: Error) => void;
+  }> = [];
 
   async connect(host: string, port: number): Promise<void> {
     this.attempts.push({ host, port });
     if (this.hangHosts.has(host)) {
-      await new Promise<void>(() => {});
+      // Mimics the contract: close() aborts the in-flight connect.
+      await new Promise<void>((_resolve, reject) => {
+        this.pendingHangs.push({ reject });
+      });
     }
     if (this.refuseHosts.has(host)) {
       throw new Error(`ECONNREFUSED ${host}`);
@@ -28,6 +34,10 @@ class FakeSocket implements TcpSocket {
   async close(): Promise<void> {
     this.closeCount += 1;
     this.connected = false;
+    for (const hang of this.pendingHangs) {
+      hang.reject(new Error("socket closed while connecting"));
+    }
+    this.pendingHangs.length = 0;
   }
 }
 
@@ -71,7 +81,7 @@ describe("ConnectionInitiator", () => {
   it("defaults the TCP port to 53350 when the advertised port is unusable", async () => {
     const socket = new FakeSocket();
     const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
-    await initiator.connect(peerDevice({ port: 0 as unknown as number }));
+    await initiator.connect(peerDevice({ port: 0 }));
 
     expect(socket.attempts).toEqual([{ host: "192.168.1.20", port: DISCOVERY_PORT }]);
   });
@@ -208,6 +218,36 @@ describe("ConnectionInitiator", () => {
     await vi.advanceTimersByTimeAsync(CONNECTION_TIMEOUT);
 
     expect(await outcome).toMatchObject({ code: "timeout" });
+  });
+
+  it("recovers from a timed-out attempt on the next candidate", async () => {
+    vi.useFakeTimers();
+    const socket = new FakeSocket();
+    socket.hangHosts.add("192.168.1.20");
+    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+
+    const promise = initiator.connect(
+      peerDevice({
+        interfaces: [
+          { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
+          { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
+        ],
+      }),
+    );
+    const outcome = captureRejection(promise);
+    await vi.advanceTimersByTimeAsync(CONNECTION_TIMEOUT);
+
+    expect(await outcome).toMatchObject({
+      address: "10.0.0.5",
+      port: DISCOVERY_PORT,
+    });
+    // The half-open attempt was reset (close() aborted the hung connect),
+    // then the next candidate was tried on the same socket.
+    expect(socket.closeCount).toBeGreaterThan(0);
+    expect(socket.attempts).toEqual([
+      { host: "192.168.1.20", port: DISCOVERY_PORT },
+      { host: "10.0.0.5", port: DISCOVERY_PORT },
+    ]);
   });
 
   it("throws connect_failed when every candidate is refused, reporting each attempt", async () => {

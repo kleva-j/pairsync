@@ -1,6 +1,7 @@
 import { CONNECTION_TIMEOUT } from "../constants";
 import { DISCOVERY_PORT } from "../protocol";
 import { connectionBackoffDelay, selectConnectionCandidates } from "../network";
+import { assertPositive } from "../utils";
 import type { Device } from "../types";
 
 /**
@@ -38,6 +39,10 @@ export interface TcpSocket {
    * Opens a connection to `host:port`. Rejects when the peer refuses or is
    * unreachable. Adapters must support being called again after a
    * {@link TcpSocket.close} (a fresh attempt re-binds lazily).
+   *
+   * IPv6 link-local candidates (`fe80::/10`) are zone-scoped: adapters should
+   * resolve the connecting interface themselves (as {@link MulticastDiscovery}
+   * requires of its adapters) or the connect may fail on multi-interface hosts.
    */
   connect(host: string, port: number): Promise<void>;
   /**
@@ -99,7 +104,7 @@ export interface ConnectionInitiatorOptions {
   socket: TcpSocket;
   /** Per-attempt connection timeout in ms (default `CONNECTION_TIMEOUT` = 10s). */
   timeoutMs?: number;
-  /** Backoff base in ms; nth failed attempt waits `base × 2^n` (default 1s). */
+  /** Backoff base in ms; the (n+1)-th attempt waits `base × 2^n` after n failures (default 1s). */
   backoffBaseMs?: number;
   /** Injectable sleep for tests (default `setTimeout`). */
   sleep?: (ms: number) => Promise<void>;
@@ -107,13 +112,6 @@ export interface ConnectionInitiatorOptions {
   now?: () => number;
   /** Called with each per-attempt failure so callers observe retries. */
   onError?: (error: ConnectionError) => void;
-}
-
-/** Guards arithmetic against nonsensical inputs. */
-function assertPositive(name: string, value: number): void {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`${name} must be a positive finite number, got ${value}`);
-  }
 }
 
 /** True for a usable TCP port (1–65535). */
@@ -201,7 +199,7 @@ export class ConnectionInitiator {
           lastCode = "connect_failed";
         }
         lastError = error;
-        this.reportError(
+        this.onError?.(
           new ConnectionError(
             lastCode,
             device.device_id,
@@ -247,10 +245,6 @@ export class ConnectionInitiator {
         },
       );
     });
-  }
-
-  private reportError(error: ConnectionError): void {
-    this.onError?.(error);
   }
 }
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { HEARTBEAT_INTERVAL, HEARTBEAT_TIMEOUT } from "../constants";
 import { MESSAGE_TYPES } from "../protocol";
+import { assertPositive } from "../utils";
 import { PLATFORM_VALUES } from "../types";
 import type { HeartbeatPayload } from "../types";
 
@@ -43,13 +44,6 @@ export class HeartbeatParseError extends Error {
   constructor(message: string, readonly cause?: unknown) {
     super(message);
     this.name = "HeartbeatParseError";
-  }
-}
-
-/** Guards expiry/missed-count arithmetic against nonsensical inputs. */
-function assertPositiveDuration(name: string, value: number): void {
-  if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`${name} must be a positive finite number, got ${value}`);
   }
 }
 
@@ -98,7 +92,7 @@ export function missedHeartbeats(
   now: number,
   interval: number = HEARTBEAT_INTERVAL,
 ): number {
-  assertPositiveDuration("interval", interval);
+  assertPositive("interval", interval);
   const elapsed = now - lastSeenAt;
   return elapsed <= 0 ? 0 : Math.floor(elapsed / interval);
 }
@@ -109,7 +103,7 @@ export function isHeartbeatStale(
   now: number,
   timeout: number = HEARTBEAT_TIMEOUT,
 ): boolean {
-  assertPositiveDuration("timeout", timeout);
+  assertPositive("timeout", timeout);
   return now - lastSeenAt >= timeout;
 }
 
@@ -138,8 +132,8 @@ export class HeartbeatTracker {
   constructor(options: HeartbeatTrackerOptions = {}) {
     this.timeout = options.timeout ?? HEARTBEAT_TIMEOUT;
     this.interval = options.interval ?? HEARTBEAT_INTERVAL;
-    assertPositiveDuration("timeout", this.timeout);
-    assertPositiveDuration("interval", this.interval);
+    assertPositive("timeout", this.timeout);
+    assertPositive("interval", this.interval);
     this.now = options.now ?? (() => Date.now());
   }
 
