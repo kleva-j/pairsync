@@ -1,3 +1,5 @@
+import fastDeepEqual from "fast-deep-equal";
+
 import { HEARTBEAT_TIMEOUT } from "../constants";
 import type { Device } from "../types";
 
@@ -168,8 +170,9 @@ export class DeviceManager {
       existing.platform !== incoming.platform ||
       existing.port !== incoming.port ||
       existing.cert_fingerprint !== incoming.cert_fingerprint ||
-      JSON.stringify(existing.interfaces) !==
-        JSON.stringify(incoming.interfaces)
+      // Key-order-independent deep equality (JSON.stringify comparison would
+      // treat reordered keys as a spurious change).
+      !fastDeepEqual(existing.interfaces, incoming.interfaces)
     );
   }
 }

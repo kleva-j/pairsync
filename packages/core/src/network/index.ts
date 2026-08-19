@@ -13,6 +13,7 @@ export {
   ADDRESS_FAMILY_PRIORITY,
   isLoopbackAddress,
   isLocalAddress,
+  normalizeAddress,
   filterInterfacesForAdvertisement,
   selectConnectionCandidates,
   selectInterface,

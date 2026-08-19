@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches: [main]
+    tags: ['v*']
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,6 +12,9 @@ concurrency:
 
 env:
   TURBO_CACHE_DIR: .turbo
+
+permissions:
+  contents: read
 
 jobs:
   check-types:
@@ -108,6 +112,7 @@ jobs:
 
       - name: Test
         run: "pnpm exec turbo run test --filter native"
+
   build:
     name: Build all packages
     runs-on: ubuntu-latest
@@ -140,20 +145,85 @@ jobs:
       - name: Build
         run: pnpm build
 
-  desktop-build:
-    name: Build desktop app (Tauri)
+  # Fast Rust-only validation for PRs. The JS bundle + typecheck are already
+  # covered by the `check-types` job, so this job runs only `cargo check` and
+  # only when desktop-relevant files changed. Branch protection should
+  # require this job — by its check name `desktop-check` — NOT `desktop-build`
+  # — for pull requests.
+  desktop-check:
+    name: desktop-check
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Cache turbo build cache
-        uses: actions/cache@v4
         with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check desktop-relevant paths
+        id: desktop-paths
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            desktop:
+              - 'apps/web/**'
+              - 'packages/**'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/ci.yml'
+
+      - name: Install Tauri system dependencies (compile-only)
+        if: steps.desktop-paths.outputs.desktop == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev
+
+      - name: Setup Rust
+        if: steps.desktop-paths.outputs.desktop == 'true'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        if: steps.desktop-paths.outputs.desktop == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/web/src-tauri
+          shared-key: tauri-desktop-check
+          cache-on-failure: true
+
+      - name: Check Rust compiles
+        if: steps.desktop-paths.outputs.desktop == 'true'
+        run: cargo check --manifest-path apps/web/src-tauri/Cargo.toml
+
+  # Full release build + bundles. Runs only on push to main (not tags; tags are
+  # handled by the `release` job below) because a Tauri release compile takes
+  # minutes; running it on every PR commit is the slow path. PRs are covered by
+  # `desktop-check`.
+  desktop-build:
+    name: Build desktop app (${{ matrix.artifact }})
+    runs-on: ${{ matrix.os }}
+    if: github.event_name == 'push' && github.ref_type == 'branch'
+    permissions:
+      contents: read
+      actions: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact: linux
+          - os: macos-latest
+            artifact: macos
+          - os: windows-latest
+            artifact: windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -167,6 +237,7 @@ jobs:
           cache: pnpm
 
       - name: Install Tauri system dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -182,9 +253,98 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/web/src-tauri
+          shared-key: tauri-desktop-build
+          cache-on-failure: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build desktop app
         run: pnpm build:desktop
+
+      - name: Upload desktop bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: pairsync-${{ matrix.artifact }}
+          path: apps/web/src-tauri/target/release/bundle/**
+          if-no-files-found: error
+
+  # Build signed-ready binaries for every platform on a `v*` tag, then publish
+  # them all to one draft GitHub Release via tauri-action (first matrix job
+  # creates the release, the others append their assets).
+  release:
+    name: Release desktop app (${{ matrix.artifact }})
+    runs-on: ${{ matrix.platform }}
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: linux
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            artifact: macos
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            artifact: macos-intel
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: windows
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.21.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Tauri system dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/web/src-tauri
+          shared-key: tauri-release
+          cache-on-failure: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and publish release
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/web
+          tagName: ${{ github.ref_name }}
+          releaseName: PairSync ${{ github.ref_name }}
+          releaseDraft: true
+          prerelease: false
+          args: --target ${{ matrix.target }}
