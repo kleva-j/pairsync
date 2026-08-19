@@ -1,4 +1,4 @@
-import { z } from "zod";
+import ipaddr from "ipaddr.js";
 
 import { assertPositive } from "../utils";
 import type { NetworkInterface } from "../types";
@@ -23,10 +23,13 @@ import type { NetworkInterface } from "../types";
  *    the next; when the list is exhausted it marks the device unreachable
  *    (a `Device` state transition owned by the actor).
  *
- * Address locality: IPv4 is local when RFC1918 (10/8, 172.16/12,
- * 192.168/16) or link-local APIPA (169.254/16); IPv6 is local when
- * link-local (fe80::/10) or ULA (fc00::/7). Loopback (127/8, ::1) and
- * public/global addresses are never usable for direct LAN connections.
+ * Address locality is classified with ipaddr.js's `range()`: IPv4 is local
+ * when `private` (RFC1918 10/8, 172.16/12, 192.168/16) or `linkLocal`
+ * (APIPA 169.254/16); IPv6 is local when `linkLocal` (fe80::/10) or
+ * `uniqueLocal` (ULA fc00::/7). Loopback (127/8, ::1) and every other range
+ * (public/global, carrier-grade NAT, IPv4-mapped IPv6, deprecated
+ * site-local, documentation, …) are never usable for direct LAN
+ * connections.
  */
 
 /** Local adapter detected on the host, before advertisement filtering. */
@@ -73,57 +76,36 @@ export const ADDRESS_FAMILY_PRIORITY = Object.freeze({
 /** Adapter names never advertised or selected (VPN tunnels, loopback). */
 const EXCLUDED_INTERFACE_NAMES = /^(lo|tun|tap|ppp|utun|wg|ipsec|vpn)\d*$/i;
 
-function parseIpv4(ip: string): number[] | null {
-  const parts = ip.split(".");
-  if (parts.length !== 4) return null;
-  const octets = parts.map((part) => {
-    if (!/^\d{1,3}$/.test(part)) return Number.NaN;
-    const n = Number(part);
-    return n <= 255 ? n : Number.NaN;
-  });
-  return octets.every((n) => Number.isInteger(n) && n >= 0) ? octets : null;
-}
+/** `ipaddr.js` range labels usable on a local network. */
+const LOCAL_RANGES = new Set(["private", "linkLocal", "uniqueLocal"]);
 
-/** First IPv6 hextet (0 for addresses starting with "::"), or null if malformed. */
-function firstHextet(ip: string): number | null {
-  const beforeColon = ip.split("%")[0]!.split(":")[0]!;
-  if (beforeColon === "") return 0;
-  if (!/^[0-9a-fA-F]{1,4}$/.test(beforeColon)) return null;
-  return Number.parseInt(beforeColon, 16);
+/**
+ * Parses an address with ipaddr.js, returning null for anything malformed.
+ * ipaddr.js 2.x carries IPv6 zone IDs (RFC 4007) on the parsed object (e.g.
+ * "fe80::1%en0" parses with `zoneId === "en0"`), so scoped addresses are
+ * handled without pre-stripping.
+ */
+function parseIp(ip: string): ipaddr.IPv4 | ipaddr.IPv6 | null {
+  try {
+    return ipaddr.parse(ip);
+  } catch {
+    return null;
+  }
 }
 
 /** True for loopback addresses (127/8, ::1) — never usable for connections. */
 export function isLoopbackAddress(ip: string): boolean {
-  const v4 = parseIpv4(ip);
-  if (v4 !== null) return v4[0] === 127;
-  const cleaned = ip.split("%")[0]!;
-  return cleaned === "::1" || cleaned === "0:0:0:0:0:0:0:1";
+  return parseIp(ip)?.range() === "loopback";
 }
 
 /**
  * True for addresses usable on a local network: RFC1918 or APIPA IPv4, and
- * link-local or ULA IPv6. Loopback, public/global, and malformed addresses
- * are not local.
+ * link-local or ULA IPv6. Loopback, public/global, mapped, and malformed
+ * addresses are not local.
  */
 export function isLocalAddress(ip: string): boolean {
-  if (isLoopbackAddress(ip)) return false;
-  const v4 = parseIpv4(ip);
-  if (v4 !== null) {
-    const [a, b] = v4;
-    return (
-      a === 10 ||
-      (a === 172 && b! >= 16 && b! <= 31) ||
-      (a === 192 && b === 168) ||
-      (a === 169 && b === 254)
-    );
-  }
-  // Must be a real IPv6 address first — a local-looking prefix alone (e.g.
-  // "fe80:garbage" or "fc00::1::2") is not reachable.
-  if (!z.ipv6().safeParse(ip).success) return false;
-  const hextet = firstHextet(ip);
-  if (hextet === null) return false;
-  // link-local fe80::/10 | ULA fc00::/7
-  return (hextet & 0xffc0) === 0xfe80 || (hextet & 0xfe00) === 0xfc00;
+  const addr = parseIp(ip);
+  return addr !== null && LOCAL_RANGES.has(addr.range());
 }
 
 /**

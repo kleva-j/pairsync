@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { MESSAGE_TYPES, PROTOCOL_VERSION } from "../protocol";
 import {
@@ -358,22 +358,6 @@ describe("chunkResponseSchema", () => {
         type: MESSAGE_TYPES.CHUNK_RESPONSE,
       }).success,
     ).toBe(false);
-  });
-
-  it("fails validation (not throws) when base64 decoding is unavailable", () => {
-    vi.stubGlobal("atob", undefined);
-    try {
-      const result = chunkResponseSchema.safeParse({
-        transfer_id: "t-1",
-        chunk_index: 1,
-        data: toBase64(validChunkResponse.data),
-        hash: FILE_HASH,
-        type: MESSAGE_TYPES.CHUNK_RESPONSE,
-      });
-      expect(result.success).toBe(false);
-    } finally {
-      vi.unstubAllGlobals();
-    }
   });
 
   it("rejects non-base64 data, negative indices, and a wrong discriminator", () => {

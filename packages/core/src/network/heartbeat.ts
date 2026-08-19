@@ -47,15 +47,6 @@ export class HeartbeatParseError extends Error {
   }
 }
 
-function describeZodIssues(error: z.ZodError): string {
-  return error.issues
-    .map((issue) => {
-      const path = issue.path.length > 0 ? ` at ${issue.path.join(".")}` : "";
-      return `${issue.message}${path}`;
-    })
-    .join("; ");
-}
-
 /**
  * Builds the wire JSON for a heartbeat. `port` should be the discovery port
  * (`DISCOVERY_PORT`) the sender listens on. `cert_fingerprint` is optional
@@ -79,7 +70,7 @@ export function parseHeartbeat(json: string): HeartbeatMessage {
   const result = heartbeatSchema.safeParse(raw);
   if (!result.success) {
     throw new HeartbeatParseError(
-      `Invalid heartbeat payload: ${describeZodIssues(result.error)}`,
+      `Invalid heartbeat payload: ${z.prettifyError(result.error)}`,
       result.error,
     );
   }

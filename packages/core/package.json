@@ -11,6 +11,9 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "base64-js": "catalog:",
+    "fast-deep-equal": "catalog:",
+    "ipaddr.js": "catalog:",
     "xstate": "catalog:",
     "zod": "catalog:"
   },

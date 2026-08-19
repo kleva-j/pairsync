@@ -102,6 +102,19 @@ describe("isLocalAddress", () => {
     expect(isLocalAddress("::1")).toBe(false);
     expect(isLocalAddress("not-an-ip")).toBe(false);
   });
+
+  it("handles scoped IPv6 zone IDs as their base address", () => {
+    expect(isLocalAddress("fe80::1%en0")).toBe(true);
+  });
+
+  it("rejects mapped-IPv6 and carrier-grade NAT as non-local", () => {
+    // An IPv4-mapped address parses as IPv6 (`ipv4Mapped` range); even a
+    // mapped RFC1918 address is not a directly reachable local endpoint.
+    expect(isLocalAddress("::ffff:192.168.1.1")).toBe(false);
+    // 100.64.0.0/10 (RFC 6598) is shared, not private.
+    expect(isLocalAddress("100.64.0.2")).toBe(false);
+    expect(isLocalAddress("100.127.255.254")).toBe(false);
+  });
 });
 
 describe("selectConnectionCandidates", () => {
