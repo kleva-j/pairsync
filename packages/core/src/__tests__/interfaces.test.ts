@@ -6,9 +6,11 @@ import {
   filterInterfacesForAdvertisement,
   isLocalAddress,
   isLoopbackAddress,
+  normalizeAddress,
   selectConnectionCandidates,
   selectInterface,
 } from "../network";
+import { heartbeatSchema } from "../network/heartbeat";
 
 const wifiV4 = (ipv4: string[] = ["192.168.1.10"], ipv6: string[] = []): NetworkInterface => ({
   type: "Wi-Fi",
@@ -117,6 +119,21 @@ describe("isLocalAddress", () => {
   });
 });
 
+describe("normalizeAddress", () => {
+  it("strips IPv6 zone IDs", () => {
+    expect(normalizeAddress("fe80::1%en0")).toBe("fe80::1");
+    expect(normalizeAddress("fe80::1%14")).toBe("fe80::1");
+    expect(normalizeAddress("fd00::1%wlan0")).toBe("fd00::1");
+  });
+
+  it("leaves plain addresses unchanged and rejects malformed input", () => {
+    expect(normalizeAddress("192.168.1.10")).toBe("192.168.1.10");
+    expect(normalizeAddress("fe80::10")).toBe("fe80::10");
+    expect(normalizeAddress("not-an-ip")).toBeNull();
+    expect(normalizeAddress("")).toBeNull();
+  });
+});
+
 describe("selectConnectionCandidates", () => {
   it("ranks Wi-Fi IPv4 above Wi-Fi IPv6 above Ethernet IPv4 above Ethernet IPv6", () => {
     const candidates = selectConnectionCandidates([ethV6(), wifiV4(), ethV4(), wifiV6()]);
@@ -218,6 +235,44 @@ describe("filterInterfacesForAdvertisement", () => {
       { name: "en2", type: "Ethernet", ipv4: [], ipv6: [], preferred: false },
     ]);
     expect(filtered).toEqual([]);
+  });
+
+  it("normalizes scoped IPv6 addresses to their plain form", () => {
+    const filtered = filterInterfacesForAdvertisement([
+      {
+        name: "en0",
+        type: "Wi-Fi",
+        ipv4: ["192.168.1.10"],
+        ipv6: ["fe80::1%en0", "fe80::2%14", "2001:db8::1"],
+        preferred: true,
+      },
+    ]);
+    expect(filtered).toEqual([
+      { type: "Wi-Fi", ipv4: ["192.168.1.10"], ipv6: ["fe80::1", "fe80::2"], preferred: true },
+    ]);
+  });
+
+  it("produces heartbeat-valid interface payloads (advertise → parse round-trip)", () => {
+    const interfaces = filterInterfacesForAdvertisement([
+      {
+        name: "en0",
+        type: "Wi-Fi",
+        ipv4: ["192.168.1.10"],
+        ipv6: ["fe80::1%en0"],
+        preferred: true,
+      },
+    ]);
+    const parsed = heartbeatSchema.safeParse({
+      type: "heartbeat",
+      device_id: "a1b2c3d4-5678-90ef-ghij-klmnopqrstuv",
+      alias: "Test",
+      platform: "linux",
+      interfaces,
+      port: 53350,
+    });
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    expect(parsed.data.interfaces[0]!.ipv6).toEqual(["fe80::1"]);
   });
 });
 

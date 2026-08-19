@@ -13,6 +13,9 @@ concurrency:
 env:
   TURBO_CACHE_DIR: .turbo
 
+permissions:
+  contents: read
+
 jobs:
   check-types:
     name: Typecheck all packages
@@ -145,16 +148,21 @@ jobs:
   # Fast Rust-only validation for PRs. The JS bundle + typecheck are already
   # covered by the `check-types` job, so this job runs only `cargo check` and
   # only when desktop-relevant files changed. Branch protection should
-  # require this job — NOT `desktop-build` — for pull requests.
+  # require this job — by its check name `desktop-check` — NOT `desktop-build`
+  # — for pull requests.
   desktop-check:
-    name: Quick desktop check (cargo check)
+    name: desktop-check
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Check desktop-relevant paths
         id: desktop-paths
@@ -198,6 +206,9 @@ jobs:
     name: Build desktop app (${{ matrix.artifact }})
     runs-on: ${{ matrix.os }}
     if: github.event_name == 'push' && github.ref_type == 'branch'
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:
@@ -211,6 +222,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -262,9 +275,12 @@ jobs:
   release:
     name: Release desktop app (${{ matrix.artifact }})
     runs-on: ${{ matrix.platform }}
-    if: github.ref_type == 'tag'
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    permissions:
+      contents: write
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - platform: ubuntu-latest
@@ -273,12 +289,17 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             artifact: macos
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            artifact: macos-intel
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             artifact: windows
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4

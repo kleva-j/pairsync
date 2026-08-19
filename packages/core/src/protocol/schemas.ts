@@ -162,8 +162,8 @@ export function buildChunkResponse(msg: ChunkResponse): string {
   const { data, ...rest } = msg;
   return JSON.stringify({
     ...rest,
-    // base64-js encodes in 0x8000-byte batches internally, so a multi-MiB
-    // chunk never triggers Hermes's quadratic string-building.
+    // base64-js encodes through a fixed-size chunked writer, so building a
+    // multi-MiB payload never triggers Hermes's quadratic string-building.
     data: fromByteArray(data),
     type: MESSAGE_TYPES.CHUNK_RESPONSE,
   });

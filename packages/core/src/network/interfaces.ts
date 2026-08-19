@@ -29,7 +29,9 @@ import type { NetworkInterface } from "../types";
  * `uniqueLocal` (ULA fc00::/7). Loopback (127/8, ::1) and every other range
  * (public/global, carrier-grade NAT, IPv4-mapped IPv6, deprecated
  * site-local, documentation, …) are never usable for direct LAN
- * connections.
+ * connections. Scoped IPv6 (zone IDs like "%en0") is classified by its base
+ * address and normalized to the plain form before it is advertised or
+ * selected, because a scope is only meaningful on the host that owns it.
  */
 
 /** Local adapter detected on the host, before advertisement filtering. */
@@ -109,6 +111,31 @@ export function isLocalAddress(ip: string): boolean {
 }
 
 /**
+ * Canonical form of an address, or null when malformed. IPv6 zone IDs
+ * (RFC 4007, e.g. "%en0") are stripped — a scope only identifies an
+ * interface on the *sender's* host, so it must never be advertised or used
+ * as a connection endpoint.
+ */
+export function normalizeAddress(ip: string): string | null {
+  const addr = parseIp(ip);
+  if (addr === null) {
+    return null;
+  }
+  if ("zoneId" in addr) {
+    addr.zoneId = undefined;
+  }
+  return addr.toString();
+}
+
+/** Local addresses in canonical plain form (zone IDs stripped). */
+function localAddresses(ips: string[]): string[] {
+  return ips
+    .filter(isLocalAddress)
+    .map(normalizeAddress)
+    .filter((ip): ip is string => ip !== null);
+}
+
+/**
  * Cleans locally-detected interfaces for advertisement: drops VPN/loopback
  * adapter names, strips non-local addresses, and drops interfaces left
  * without any usable address. Returns the wire-safe shape — OS adapter
@@ -121,8 +148,8 @@ export function filterInterfacesForAdvertisement(
     .filter((iface) => !EXCLUDED_INTERFACE_NAMES.test(iface.name))
     .map((iface) => ({
       type: iface.type,
-      ipv4: iface.ipv4.filter(isLocalAddress),
-      ipv6: iface.ipv6.filter(isLocalAddress),
+      ipv4: localAddresses(iface.ipv4),
+      ipv6: localAddresses(iface.ipv6),
       preferred: iface.preferred,
     }))
     .filter((iface) => iface.ipv4.length > 0 || iface.ipv6.length > 0);
@@ -137,7 +164,7 @@ export function selectConnectionCandidates(
 ): SelectedEndpoint[] {
   const candidates: SelectedEndpoint[] = [];
   interfaces.forEach((iface, interfaceIndex) => {
-    iface.ipv4.filter(isLocalAddress).forEach((address) => {
+    localAddresses(iface.ipv4).forEach((address) => {
       candidates.push({
         interfaceIndex,
         interface: iface,
@@ -146,7 +173,7 @@ export function selectConnectionCandidates(
         priority: INTERFACE_TYPE_PRIORITY[iface.type] * 2 + ADDRESS_FAMILY_PRIORITY.ipv4,
       });
     });
-    iface.ipv6.filter(isLocalAddress).forEach((address) => {
+    localAddresses(iface.ipv6).forEach((address) => {
       candidates.push({
         interfaceIndex,
         interface: iface,
