@@ -15,3 +15,11 @@ export type { MdnsService, MdnsDiscoveryOptions } from "./mdns";
 
 export { DeviceManager } from "./deviceManager";
 export type { DeviceManagerOptions } from "./deviceManager";
+
+export { ConnectionInitiator, ConnectionError } from "./connection";
+export type {
+  TcpSocket,
+  ConnectionErrorCode,
+  EstablishedConnection,
+  ConnectionInitiatorOptions,
+} from "./connection";
