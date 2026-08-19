@@ -45,7 +45,9 @@ const peerDevice = (overrides: Partial<Device> = {}): Device => ({
   device_id: "peer-1",
   alias: "Peer",
   platform: "ios",
-  interfaces: [{ type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true }],
+  interfaces: [
+    { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
+  ],
   port: DISCOVERY_PORT,
   ...overrides,
 });
@@ -54,7 +56,7 @@ const peerDevice = (overrides: Partial<Device> = {}): Device => ({
 function captureRejection<T>(promise: Promise<T>): Promise<unknown> {
   return promise.then(
     (value) => value,
-    (error) => error,
+    (error) => error
   );
 }
 
@@ -65,7 +67,10 @@ describe("ConnectionInitiator", () => {
 
   it("connects to the device's best candidate on its heartbeat port", async () => {
     const socket = new FakeSocket();
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
     const conn = await initiator.connect(peerDevice({ port: 53_351 }));
 
     expect(socket.attempts).toEqual([{ host: "192.168.1.20", port: 53_351 }]);
@@ -80,15 +85,28 @@ describe("ConnectionInitiator", () => {
 
   it("defaults the TCP port to 53350 when the advertised port is unusable", async () => {
     const socket = new FakeSocket();
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
-    await initiator.connect(peerDevice({ port: 0 }));
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
 
-    expect(socket.attempts).toEqual([{ host: "192.168.1.20", port: DISCOVERY_PORT }]);
+    await initiator.connect(peerDevice({ port: 0 }));
+    await initiator.connect(peerDevice({ port: 70_000 }));
+    await initiator.connect(peerDevice({ port: 3.5 }));
+
+    expect(socket.attempts).toEqual([
+      { host: "192.168.1.20", port: DISCOVERY_PORT },
+      { host: "192.168.1.20", port: DISCOVERY_PORT },
+      { host: "192.168.1.20", port: DISCOVERY_PORT },
+    ]);
   });
 
   it("tries the highest-priority candidate first across multiple interfaces", async () => {
     const socket = new FakeSocket();
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
     await initiator.connect(
       peerDevice({
         interfaces: [
@@ -96,10 +114,13 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
           { type: "Wi-Fi", ipv4: [], ipv6: ["fe80::20"], preferred: false },
         ],
-      }),
+      })
     );
 
-    expect(socket.attempts[0]).toEqual({ host: "192.168.1.20", port: DISCOVERY_PORT });
+    expect(socket.attempts[0]).toEqual({
+      host: "192.168.1.20",
+      port: DISCOVERY_PORT,
+    });
   });
 
   it("falls back to the next candidate after a refusal, with a 1s backoff", async () => {
@@ -107,7 +128,7 @@ describe("ConnectionInitiator", () => {
     socket.refuseHosts.add("192.168.1.20");
     const sleeps: number[] = [];
     const initiator = new ConnectionInitiator({
-      socket,
+      createSocket: () => socket,
       sleep: async (ms) => {
         sleeps.push(ms);
       },
@@ -119,7 +140,7 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
           { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
         ],
-      }),
+      })
     );
 
     expect(sleeps).toEqual([1_000]);
@@ -136,7 +157,7 @@ describe("ConnectionInitiator", () => {
     socket.refuseHosts.add("192.168.1.30");
     const sleeps: number[] = [];
     const initiator = new ConnectionInitiator({
-      socket,
+      createSocket: () => socket,
       sleep: async (ms) => {
         sleeps.push(ms);
       },
@@ -149,7 +170,7 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.30"], ipv6: [], preferred: false },
           { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
         ],
-      }),
+      })
     );
 
     expect(sleeps).toEqual([1_000, 2_000]);
@@ -161,7 +182,7 @@ describe("ConnectionInitiator", () => {
     socket.refuseHosts.add("192.168.1.20");
     const sleeps: number[] = [];
     const initiator = new ConnectionInitiator({
-      socket,
+      createSocket: () => socket,
       backoffBaseMs: 500,
       sleep: async (ms) => {
         sleeps.push(ms);
@@ -174,7 +195,7 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
           { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
         ],
-      }),
+      })
     );
 
     expect(sleeps).toEqual([500]);
@@ -186,7 +207,7 @@ describe("ConnectionInitiator", () => {
     socket.hangHosts.add("192.168.1.20");
     const errors: ConnectionError[] = [];
     const initiator = new ConnectionInitiator({
-      socket,
+      createSocket: () => socket,
       sleep: async () => {},
       onError: (error) => errors.push(error),
     });
@@ -211,7 +232,10 @@ describe("ConnectionInitiator", () => {
     vi.useFakeTimers();
     const socket = new FakeSocket();
     socket.hangHosts.add("192.168.1.20");
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
 
     const promise = initiator.connect(peerDevice());
     const outcome = captureRejection(promise);
@@ -224,7 +248,10 @@ describe("ConnectionInitiator", () => {
     vi.useFakeTimers();
     const socket = new FakeSocket();
     socket.hangHosts.add("192.168.1.20");
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
 
     const promise = initiator.connect(
       peerDevice({
@@ -232,7 +259,7 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
           { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
         ],
-      }),
+      })
     );
     const outcome = captureRejection(promise);
     await vi.advanceTimersByTimeAsync(CONNECTION_TIMEOUT);
@@ -256,7 +283,7 @@ describe("ConnectionInitiator", () => {
     socket.refuseHosts.add("10.0.0.5");
     const errors: ConnectionError[] = [];
     const initiator = new ConnectionInitiator({
-      socket,
+      createSocket: () => socket,
       sleep: async () => {},
       onError: (error) => errors.push(error),
     });
@@ -267,7 +294,7 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
           { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
         ],
-      }),
+      })
     );
     const outcome = captureRejection(promise);
 
@@ -291,7 +318,10 @@ describe("ConnectionInitiator", () => {
     const socket = new FakeSocket();
     socket.refuseHosts.add("192.168.1.20");
     socket.hangHosts.add("10.0.0.5");
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
 
     const promise = initiator.connect(
       peerDevice({
@@ -299,7 +329,7 @@ describe("ConnectionInitiator", () => {
           { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
           { type: "Ethernet", ipv4: ["10.0.0.5"], ipv6: [], preferred: false },
         ],
-      }),
+      })
     );
     const outcome = captureRejection(promise);
     await vi.advanceTimersByTimeAsync(CONNECTION_TIMEOUT);
@@ -312,7 +342,10 @@ describe("ConnectionInitiator", () => {
 
   it("throws no_candidates when the device advertises no interfaces", async () => {
     const socket = new FakeSocket();
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
 
     const promise = initiator.connect(peerDevice({ interfaces: [] }));
     const outcome = captureRejection(promise);
@@ -327,14 +360,22 @@ describe("ConnectionInitiator", () => {
 
   it("throws no_candidates when every advertised address is unreachable", async () => {
     const socket = new FakeSocket();
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
 
     const promise = initiator.connect(
       peerDevice({
         interfaces: [
-          { type: "Wi-Fi", ipv4: ["8.8.8.8", "127.0.0.1"], ipv6: ["::1"], preferred: true },
+          {
+            type: "Wi-Fi",
+            ipv4: ["8.8.8.8", "127.0.0.1"],
+            ipv6: ["::1"],
+            preferred: true,
+          },
         ],
-      }),
+      })
     );
     const outcome = captureRejection(promise);
 
@@ -344,22 +385,43 @@ describe("ConnectionInitiator", () => {
 
   it("rejects non-positive timeout and backoff options", () => {
     const socket = new FakeSocket();
-    expect(() => new ConnectionInitiator({ socket, timeoutMs: 0 })).toThrow(RangeError);
-    expect(() => new ConnectionInitiator({ socket, timeoutMs: -1 })).toThrow(RangeError);
-    expect(() => new ConnectionInitiator({ socket, timeoutMs: Number.NaN })).toThrow(
-      RangeError,
-    );
-    expect(() => new ConnectionInitiator({ socket, backoffBaseMs: 0 })).toThrow(
-      RangeError,
-    );
-    expect(() => new ConnectionInitiator({ socket, backoffBaseMs: Number.NaN })).toThrow(
-      RangeError,
-    );
+    expect(
+      () =>
+        new ConnectionInitiator({ createSocket: () => socket, timeoutMs: 0 })
+    ).toThrow(RangeError);
+    expect(
+      () =>
+        new ConnectionInitiator({ createSocket: () => socket, timeoutMs: -1 })
+    ).toThrow(RangeError);
+    expect(
+      () =>
+        new ConnectionInitiator({
+          createSocket: () => socket,
+          timeoutMs: Number.NaN,
+        })
+    ).toThrow(RangeError);
+    expect(
+      () =>
+        new ConnectionInitiator({
+          createSocket: () => socket,
+          backoffBaseMs: 0,
+        })
+    ).toThrow(RangeError);
+    expect(
+      () =>
+        new ConnectionInitiator({
+          createSocket: () => socket,
+          backoffBaseMs: Number.NaN,
+        })
+    ).toThrow(RangeError);
   });
 
   it("close() on the established connection delegates to the socket", async () => {
     const socket = new FakeSocket();
-    const initiator = new ConnectionInitiator({ socket, sleep: async () => {} });
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
     const conn = await initiator.connect(peerDevice());
 
     expect(socket.connected).toBe(true);
@@ -368,10 +430,31 @@ describe("ConnectionInitiator", () => {
     expect(socket.connected).toBe(false);
   });
 
+  it("uses a distinct socket per connect() call, so connections stay isolated", async () => {
+    const sockets = [new FakeSocket(), new FakeSocket()];
+    let next = 0;
+    const initiator = new ConnectionInitiator({
+      createSocket: () => sockets[next++]!,
+      sleep: async () => {},
+    });
+
+    const first = await initiator.connect(peerDevice({ device_id: "peer-1" }));
+    const second = await initiator.connect(peerDevice({ device_id: "peer-2" }));
+
+    expect(first.socket).toBe(sockets[0]);
+    expect(second.socket).toBe(sockets[1]);
+
+    // Closing one connection must not disturb the other's socket.
+    await first.close();
+    expect(sockets[0]!.connected).toBe(false);
+    expect(sockets[1]!.connected).toBe(true);
+    await second.close();
+  });
+
   it("stamps connectedAt from the injected clock", async () => {
     const socket = new FakeSocket();
     const initiator = new ConnectionInitiator({
-      socket,
+      createSocket: () => socket,
       sleep: async () => {},
       now: () => 42_000,
     });

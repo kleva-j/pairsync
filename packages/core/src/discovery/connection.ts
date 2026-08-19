@@ -31,14 +31,19 @@ import type { Device } from "../types";
  * 4. When every candidate fails, rejects with a typed
  *    {@link ConnectionError}; per-attempt failures are also surfaced via
  *    `onError` so callers can observe retries.
+ *
+ * Each `connect()` call gets a fresh socket from the `createSocket` factory,
+ * so concurrent connections to different devices, and closing one connection,
+ * never disturb another.
  */
 
 /** Platform TCP socket contract. Implemented by each app's adapter. */
 export interface TcpSocket {
   /**
    * Opens a connection to `host:port`. Rejects when the peer refuses or is
-   * unreachable. Adapters must support being called again after a
-   * {@link TcpSocket.close} (a fresh attempt re-binds lazily).
+   * unreachable. Between candidate attempts the engine always calls
+   * {@link TcpSocket.close}, so adapters may rely on a subsequent connect()
+   * following a close (a fresh attempt re-binds lazily).
    *
    * IPv6 link-local candidates (`fe80::/10`) are zone-scoped: adapters should
    * resolve the connecting interface themselves (as {@link MulticastDiscovery}
@@ -54,7 +59,10 @@ export interface TcpSocket {
 }
 
 /** Why a connection attempt failed. */
-export type ConnectionErrorCode = "no_candidates" | "timeout" | "connect_failed";
+export type ConnectionErrorCode =
+  | "no_candidates"
+  | "timeout"
+  | "connect_failed";
 
 /**
  * Thrown when a connection cannot be established. `code` classifies the
@@ -72,7 +80,7 @@ export class ConnectionError extends Error {
     code: ConnectionErrorCode,
     deviceId: string,
     message: string,
-    options: { attempt?: number; lastError?: unknown } = {},
+    options: { attempt?: number; lastError?: unknown } = {}
   ) {
     super(message);
     this.name = "ConnectionError";
@@ -98,10 +106,14 @@ export interface EstablishedConnection {
   close(): Promise<void>;
 }
 
-/** Options for {@link ConnectionInitiator}; all optional except `socket`. */
+/** Options for {@link ConnectionInitiator}; all optional except `createSocket`. */
 export interface ConnectionInitiatorOptions {
-  /** Platform socket adapter (see {@link TcpSocket}). */
-  socket: TcpSocket;
+  /**
+   * Creates a fresh platform socket per {@link ConnectionInitiator.connect}
+   * call. Each connection owns its own socket, so concurrent connects to
+   * different devices — and closes of one connection — never touch another.
+   */
+  createSocket: () => TcpSocket;
   /** Per-attempt connection timeout in ms (default `CONNECTION_TIMEOUT` = 10s). */
   timeoutMs?: number;
   /** Backoff base in ms; the (n+1)-th attempt waits `base × 2^n` after n failures (default 1s). */
@@ -131,7 +143,7 @@ function resolvePort(port: number): number {
  * until one succeeds or the list is exhausted.
  */
 export class ConnectionInitiator {
-  private readonly socket: TcpSocket;
+  private readonly createSocket: () => TcpSocket;
   private readonly timeoutMs: number;
   private readonly backoffBaseMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -141,11 +153,12 @@ export class ConnectionInitiator {
   constructor(options: ConnectionInitiatorOptions) {
     assertPositive("timeoutMs", options.timeoutMs ?? CONNECTION_TIMEOUT);
     assertPositive("backoffBaseMs", options.backoffBaseMs ?? 1_000);
-    this.socket = options.socket;
+    this.createSocket = options.createSocket;
     this.timeoutMs = options.timeoutMs ?? CONNECTION_TIMEOUT;
     this.backoffBaseMs = options.backoffBaseMs ?? 1_000;
     this.sleep =
-      options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+      options.sleep ??
+      ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
     this.now = options.now ?? (() => Date.now());
     this.onError = options.onError;
   }
@@ -161,11 +174,12 @@ export class ConnectionInitiator {
       throw new ConnectionError(
         "no_candidates",
         device.device_id,
-        `Device ${device.device_id} advertises no reachable connection endpoint`,
+        `Device ${device.device_id} advertises no reachable connection endpoint`
       );
     }
 
     const port = resolvePort(device.port);
+    const socket = this.createSocket();
     let lastCode: ConnectionErrorCode = "connect_failed";
     let lastError: unknown;
 
@@ -176,36 +190,37 @@ export class ConnectionInitiator {
       }
 
       try {
-        await this.connectWithTimeout(candidate.address, port, device.device_id);
+        await this.connectWithTimeout(
+          socket,
+          candidate.address,
+          port,
+          device.device_id
+        );
         const connection: EstablishedConnection = {
           deviceId: device.device_id,
           address: candidate.address,
           port,
-          socket: this.socket,
+          socket,
           connectedAt: this.now(),
-          close: () => this.socket.close(),
+          close: () => socket.close(),
         };
         return connection;
       } catch (error) {
-        if (isTimeoutError(error)) {
-          lastCode = "timeout";
-          // Best effort: a half-open socket must not leak into the next attempt.
-          try {
-            await this.socket.close();
-          } catch {
-            // Non-fatal during failure handling.
-          }
-        } else {
-          lastCode = "connect_failed";
-        }
+        lastCode = isTimeoutError(error) ? "timeout" : "connect_failed";
         lastError = error;
+        // Best effort on every failure: reset the socket so no half-open or
+        // stale state leaks into the next candidate attempt (no-op when
+        // nothing was connected).
+        await this.closeBestEffort(socket);
         this.onError?.(
           new ConnectionError(
             lastCode,
             device.device_id,
-            `Connection attempt ${index + 1} to ${candidate.address}:${port} failed`,
-            { attempt: index + 1, lastError: error },
-          ),
+            `Connection attempt ${index + 1} to ${
+              candidate.address
+            }:${port} failed`,
+            { attempt: index + 1, lastError: error }
+          )
         );
       }
     }
@@ -214,15 +229,16 @@ export class ConnectionInitiator {
       lastCode,
       device.device_id,
       `Unable to connect to ${device.device_id} after ${candidates.length} attempt(s)`,
-      { attempt: candidates.length, lastError },
+      { attempt: candidates.length, lastError }
     );
   }
 
   /** Races the socket connect against the per-attempt timeout. */
   private connectWithTimeout(
+    socket: TcpSocket,
     address: string,
     port: number,
-    deviceId: string,
+    deviceId: string
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const handle = setTimeout(() => {
@@ -230,11 +246,11 @@ export class ConnectionInitiator {
           new ConnectionError(
             "timeout",
             deviceId,
-            `Connection to ${address}:${port} timed out after ${this.timeoutMs}ms`,
-          ),
+            `Connection to ${address}:${port} timed out after ${this.timeoutMs}ms`
+          )
         );
       }, this.timeoutMs);
-      this.socket.connect(address, port).then(
+      socket.connect(address, port).then(
         (value) => {
           clearTimeout(handle);
           resolve(value);
@@ -242,9 +258,18 @@ export class ConnectionInitiator {
         (error) => {
           clearTimeout(handle);
           reject(error);
-        },
+        }
       );
     });
+  }
+
+  /** Closes a socket, swallowing adapter errors (best-effort reset). */
+  private async closeBestEffort(socket: TcpSocket): Promise<void> {
+    try {
+      await socket.close();
+    } catch {
+      // Non-fatal during failure handling.
+    }
   }
 }
 
