@@ -109,10 +109,13 @@ different network reality at a rising implementation cost:
   (task 2.8).
 
 The layering is **complementary, not redundant** — the failure modes are
-disjoint (a misconfigured router breaks 1 and 2 together; a locked-down space
-breaks 1 only). Ordering also matches cost and UX: multicast first because it
-is the highest-value/lowest-effort path, manual last because it degrades UX
-(a person must type an address) and is therefore the last resort.
+**partly independent**; both UDP multicast and mDNS depend on local-network
+multicast and permissions, so AP/client isolation, guest Wi-Fi, firewalls, and
+permission policies may block both — manual IP entry is the fallback when
+either or both discovery methods fail. Ordering also matches cost and UX:
+multicast first because it is the highest-value/lowest-effort path, manual last
+because it degrades UX (a person must type an address) and is therefore the
+last resort.
 
 Same-subnet coverage (1 + 2) ships first; the repeater's cross-subnet promise
 waits until there is a home for an always-on relay.
@@ -141,7 +144,7 @@ the canonical in-memory device list:
 The **`discoveryMachine`** (`discoveryMachine.ts:71-97`) is deliberately
 declarative — no timers or sockets of its own:
 
-```
+```text
 idle →(START_SCAN)→ scanning
 scanning: DEVICE_FOUND (new id) ⇒ addDevice
           DEVICE_EXPIRED (tracked) ⇒ removeDevice
@@ -181,16 +184,13 @@ A discovered device is not yet proven to be who it claims. Phase 4 adds:
 
 Every address in the peer's heartbeat becomes a candidate with priority:
 
-```
+```text
 priority = INTERFACE_TYPE_PRIORITY[type] × 2 + ADDRESS_FAMILY_PRIORITY[family]
 INTERFACE_TYPE_PRIORITY: Wi-Fi 0, Ethernet 1, Cellular 2, Other 3
 ADDRESS_FAMILY_PRIORITY: ipv4 0, ipv6 1
 ```
 
-Ordering is therefore \*\*Wi-Fi IPv4 > Wi-Fi IPv6 > Ethernet IPv4 > Ethernet IPv6
-
-> Cellular > Other\*\*, ties broken by interface index. Only already-filtered
-> local addresses are candidates.
+Ordering is therefore **Wi-Fi IPv4 > Wi-Fi IPv6 > Ethernet IPv4 > Ethernet IPv6 > Cellular > Other**, ties broken by interface index. Only already-filtered local addresses are candidates.
 
 ### The connect loop — `ConnectionInitiator.connect` (`connection.ts:171`)
 
@@ -221,7 +221,7 @@ connectedAt, close }` — the socket is passed to the transfer engine.
 
 ### The `deviceMachine` around it (`state/machines/deviceMachine.ts`)
 
-```
+```text
 idle →(START_SCAN)→ scanning →(DEVICE_DISCOVERED)→ discovered
 discovered →(CONNECT, guard canConnect)→ connecting
 connecting →(CONNECTED)→ connected
@@ -260,8 +260,7 @@ Four hardening requirements (`IMPLEMENTATION_PLAN.md:567-576`):
 
 Framing stays as established in Phase 3: **length-prefixed binary** on native
 TCP, **JSON/base64** on the web WebSocket path. The envelope is applied to each
-message before framing. The `X-Cert-Fingerprint` header (`constants.ts:44`) is
-renamed to `X-Identity-Fingerprint` (identities, not certs).
+message before framing. The `X-Cert-Fingerprint` header (`constants.ts:44`) **will be renamed to** `X-Identity-Fingerprint` (identities, not certs) **as part of Phase 4 identity work**.
 
 ---
 

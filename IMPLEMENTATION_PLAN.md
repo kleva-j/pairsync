@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This document provides a **detailed, efficient breakdown** of the PairSync implementation into **5 sequential phases**, accounting for the **current project state** (Turborepo monorepo skeleton with React + React Native + Tauri setup, but **no core functionality implemented**).
+This document provides a **detailed, efficient breakdown** of the PairSync implementation into **5 sequential phases**, accounting for the **current project state** (Turborepo monorepo skeleton with React + React Native + Tauri setup, with **core foundations implemented**: shared types, constants, platform utils, three XState machines, protocol constants, wire-message schemas, heartbeat protocol, interface selection, UDP multicast discovery, mDNS discovery, device list management, and connection initiation).
 
 The PRD describes a **cross-platform P2P file/clipboard sharing system** with:
 
@@ -19,7 +19,7 @@ The PRD describes a **cross-platform P2P file/clipboard sharing system** with:
 - Cross-platform support (iOS, Android, macOS, Windows, Linux)
 - Background transfers, accessibility, localization
 
-**Key Insight:** The existing project structure provides a **solid foundation** (Turborepo, shared packages, platform-specific apps), but **all core logic must be built from scratch**. The implementation plan must account for:
+**Key Insight:** The existing project structure provides a **solid foundation** (Turborepo, shared packages, platform-specific apps), and **core foundations are complete** (types, constants, platform utils, three XState machines, protocol constants, wire-message schemas, heartbeat protocol, interface selection, UDP multicast discovery, mDNS discovery, device list management, and connection initiation). Remaining work accounts for:
 
 1. **Platform divergence** (React Native vs Tauri/Rust networking)
 2. **Cryptographic complexity** (ECDH + HKDF + AES-GCM)
@@ -172,7 +172,7 @@ The current project is a **skeleton**. Without proper foundation:
 | 0.1 | Validate build pipeline         | Ensure `pnpm install`, `pnpm dev`, `pnpm build` work for all targets (web, native, desktop) | DevOps | All targets build without errors                                  | Medium | Fix any TurboRepo config issues early      |
 | 0.2 | Set up shared TypeScript config | Create `packages/config` with shared `tsconfig.json` for all packages                       | Core   | All packages compile with shared rules                            | Low    | Use `extends` in package tsconfigs         |
 | 0.3 | Create core package structure   | Set up `packages/core/src/` with proper module structure                                    | Core   | Importable from all apps                                          | Low    | Follow monorepo best practices             |
-| 0.4 | Create env package              | Shared zod-validated environment schemas (`@t3-oss/env-core`) for web and native           | Core   | `import { env } from '@pairsync/env'` validates `VITE_SERVER_URL` / `EXPO_PUBLIC_SERVER_URL` | Low    | Simple utility package                     |
+| 0.4 | Create env package              | Shared zod-validated environment schemas (`@t3-oss/env-core`) for web and native           | Core   | `import { env } from '@pairsync/env/web'` and `import { env } from '@pairsync/env/native'` validate `VITE_SERVER_URL` / `EXPO_PUBLIC_SERVER_URL` | Low    | Simple utility package                     |
 | 0.5 | Set up testing infrastructure   | Jest/Vitest for unit tests, Playwright for E2E (web), Detox for E2E (native)                | DevOps | Test frameworks configured and passing basic tests                | High   | Testing is critical for reliability        |
 | 0.6 | Create shared utility types     | Device, Transfer, Chunk, Protocol types                                                     | Core   | Types used consistently across all packages                       | Medium | Get types right early to avoid refactoring |
 | 0.7 | Document development workflow   | Contributing guide, commit conventions, PR template                                         | DevOps | Team can onboard quickly                                          | Low    | Standardize early                          |
@@ -183,7 +183,7 @@ The current project is a **skeleton**. Without proper foundation:
 - ✅ **0.2** — `packages/config/tsconfig.base.json` exists and is extended by every package
 - ✅ **0.3** — `@pairsync/core` has a manifest, entry point, and turbo `check-types` task
 - ✅ **0.4** — `@pairsync/env` provides zod-validated `./web` and `./native` schemas
-- ✅ **0.5** — vitest wired into `@pairsync/core` + `@pairsync/env` with 228 passing unit tests; turbo `test` task, root `pnpm test`, and a CI `test` job added (E2E — Playwright/Detox — deferred to later phases)
+- ✅ **0.5** — vitest wired into `@pairsync/core` + `@pairsync/env` with 234 passing unit tests; turbo `test` task, root `pnpm test`, and a CI `test` job added (E2E — Playwright/Detox — deferred to later phases)
 - ✅ **0.6** — shared types (`device`/`transfer`/`protocol`), constants (ports/timeouts/sizes), and platform utils implemented in `@pairsync/core` with tests
 - ✅ **0.7** — `.github/CONTRIBUTING.md` and `.github/pull_request_template.md` added
 
@@ -212,7 +212,7 @@ packages/
     └── src/
         ├── web.ts               # VITE_SERVER_URL schema (t3-oss)
         ├── native.ts            # EXPO_PUBLIC_SERVER_URL schema (t3-oss)
-        └── index.ts             # Re-exports env
+        └── vite-env.d.ts        # Vite client types
 
 apps/
 ├── web/
@@ -301,11 +301,11 @@ packages/core/src/
 
 ### Success Criteria
 
-- [ ] All state machines are implemented and tested
-- [ ] Heartbeat protocol logic works in isolation
-- [ ] Interface selection logic handles all edge cases
-- [ ] Protocol constants are shared and consistent
-- [ ] Unit test coverage ≥ 90% for core logic
+- [x] All state machines are implemented and tested
+- [x] Heartbeat protocol logic works in isolation
+- [x] Interface selection logic handles all edge cases
+- [x] Protocol constants are shared and consistent
+- [ ] Unit test coverage ≥ 90% for core logic (pending coverage measurement)
 
 ### Dependencies
 
@@ -348,9 +348,11 @@ surrounding ecosystem (`.local` names, Bonjour) and part of the iOS
 Local-Network permission story, but is **link-local scope** — it dies at subnet
 boundaries, hence the deferred repeater (2.7). **Manual IP entry** is the
 failsafe when both discovery paths are blocked, reusing the normal connection
-path. The layering is complementary, not redundant — the failure modes are
-disjoint (a misconfigured router breaks 1 and 2; a locked-down space breaks 1
-only) — and ordered by value, with manual last because it degrades UX.
+path. The layering is **complementary, not redundant** — the failure modes are
+**partly independent**; both UDP multicast and mDNS depend on local-network
+multicast and permissions, so AP/client isolation, guest Wi-Fi, firewalls, and
+permission policies may block both — manual IP entry is the fallback when
+either or both discovery methods fail.
 
 ### Tasks
 
@@ -407,7 +409,7 @@ packages/core/src/
 apps/native/src/platform/
 ├── udp.ts                       # react-native-udp → MulticastSocket
 ├── mdns.ts                      # react-native-zeroconf → MdnsService
-├── tcp.ts                       # react-native-tcp → TcpSocket
+├── tcp.ts                       # react-native-tcp-socket → TcpSocket
 └── index.ts
 apps/web/src-tauri/plugins/      # Rust/Tauri adapters → same contracts
 ├── pairsync-udp/                # UDP multicast plugin
@@ -489,10 +491,9 @@ This phase implements:
 | ID   | Task                                             | Description                                        | Success Criteria                                          |
 | ---- | ------------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------- |
 | 3.M1 | Integrate `expo-file-system` for mobile file I/O | Read/write files on mobile with proper permissions. Already resolvable as part of the Expo SDK 57 core set (`~57.0.2`) — add as a direct dependency only when first imported | File operations work on mobile                            |
-| 3.M2 | Implement mobile background transfer support     | Keep transfers alive when app backgrounded         | Transfers continue in background (within platform limits) |
-| 3.M3 | Handle mobile storage permissions                | Request and handle storage permission changes      | Permissions handled gracefully                            |
+| 3.M2 | Handle mobile storage permissions                | Request and handle storage permission changes      | Permissions handled gracefully                            |
 | 3.D1 | Implement desktop file I/O                       | Read/write files on desktop                        | File operations work on desktop                           |
-| 3.D2 | Implement desktop background transfer support    | Transfers continue when app minimized              | Transfers continue in background                          |
+| 3.D2 | Handle desktop storage permissions               | Request and handle storage permission changes      | Permissions handled gracefully                            |
 
 ### Deliverables
 
@@ -516,7 +517,8 @@ packages/core/src/
 └── __tests__/
     ├── transfer.test.ts
     ├── resume.test.ts
-    └── verify.test.ts
+    ├── verify.test.ts
+    └── database.test.ts
 ```
 
 ### Success Criteria
@@ -580,12 +582,12 @@ This phase secures the connections established in Phase 2:
 
 Four non-negotiable hardening requirements for the custom transport, since it replaces TLS's audited record/handshake layer:
 
-1. **Forward secrecy (ephemeral ECDH).** Never derive session keys from static-static ECDH alone. Each session uses a fresh **ephemeral** X25519 keypair; the ephemeral keys are authenticated by both long-term identity keys (combine `ECDH(eph_A, eph_B) + ECDH(id_A, id_B)` through HKDF). A leaked identity key then cannot decrypt past sessions.
-2. **AEAD envelope + nonce discipline.** Every application message is an envelope `{ nonce, ciphertext }`. Nonces must be **unique per session key** — derive a per-session counter via HKDF (96-bit, incremented per message) and reset/rotate the session key before the nonce space or the GCM data limit (≈>64 GiB) is exhausted. **Nonce reuse under GCM is catastrophic** — a test must fail closed on it.
+1. **Forward secrecy + authenticated key exchange.** Never derive session keys from static-static ECDH alone. Each session uses a fresh **ephemeral** X25519 keypair; the ephemeral keys are authenticated by both long-term identity keys via an **authenticated key-exchange pattern** (e.g., Noise-style static/ephemeral cross-DH with transcript signatures, or explicit role-bound cross-DH combining `ECDH(eph_A, eph_B)` and `ECDH(id_A, id_B)` through HKDF with explicit initiator/responder role binding). A leaked identity key then cannot decrypt past sessions, and **key-compromise impersonation (KCI) is prevented** by transcript binding and role separation.
+2. **AEAD envelope + directional nonce discipline.** Every application message is an envelope `{ nonce, ciphertext }`. Nonces must be **unique per session key per direction** — derive independent per-direction keys via HKDF with distinct info strings (`info = "A→B"` / `"B→A"`) or encode direction in the nonce, and rotate session keys before the nonce space or the GCM data limit (~64 GiB) is exhausted. **Nonce reuse under GCM is catastrophic** — the runtime encryption/decryption path must reject nonce reuse under a session key and fail closed (not merely test for it).
 3. **Key confirmation + transcript binding.** The handshake ends with both sides confirming they derived the same session key (e.g., a confirm MAC) and the transcript binds the identity keys and nonces, so neither side can be swapped mid-handshake and key-compromise impersonation (KCI) is prevented.
 4. **Post-handshake session-key fingerprint.** After the handshake, both devices display the **fingerprint of the derived session key** (not the identity key), compared in-person during pairing (4.U1). This catches a mistyped/misscanned QR payload or an attacker who somehow authenticated the exchange.
 
-Framing itself stays as decided in Phase 3 (length-prefixed binary for native TCP, JSON/base64 for the web WebSocket path); the envelope in (2) is applied to each message before framing. The `X-Cert-Fingerprint` header from Phase 1.5 becomes `X-Identity-Fingerprint` (identities, not certs).
+Framing itself stays as decided in Phase 3 (length-prefixed binary for native TCP, JSON/base64 for the web WebSocket path); the envelope in (2) is applied to each message before framing. The `X-Cert-Fingerprint` header from Phase 1.5 **will be renamed to** `X-Identity-Fingerprint` (identities, not certs) **as part of Phase 4 identity work**.
 
 ### Tasks
 
@@ -789,7 +791,7 @@ packages/ui/src/
 # Tests
 packages/core/src/__tests__/
 ├── resume.test.ts
-└── database.test.ts
+└── background.test.ts
 ```
 
 ### Success Criteria

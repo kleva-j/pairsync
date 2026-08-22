@@ -39,7 +39,7 @@ pairsync/
 - ✅ Wire-message schemas + builders (zod: prepare/chunk/resume + discriminated union)
 - ✅ Heartbeat protocol logic (datagram building/parsing, missed-heartbeat expiry)
 - ✅ Network interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority)
-- ✅ Comprehensive unit tests (203 passing tests)
+- ✅ Comprehensive unit tests (234 passing tests)
 
 **Build & Testing Infrastructure:**
 - ✅ Turborepo pipeline with dependency-aware task scheduling
@@ -83,7 +83,7 @@ pairsync/
 | **Desktop UI** | Tauri 2.x + React 19 + Vite + TailwindCSS v4 | ✅ Skeleton exists |
 | **Mobile Networking** | react-native-udp, react-native-zeroconf | ⏳ Planned |
 | **Desktop Networking** | Tauri Rust plugins (socket2/tokio, mdns-sd) | ⏳ Planned |
-| **Crypto (Mobile)** | react-native-quick-crypto (X25519, SHA-256, HKDF) | ✅ Installed (spike-verified) |
+| **Crypto (Mobile)** | react-native-quick-crypto (X25519, SHA-256, HKDF, AES-256-GCM) | ✅ Installed (spike-verified) |
 | **Crypto (Desktop)** | x25519-dalek, hkdf, aes-gcm | ⏳ Planned |
 | **State Management** | XState | ✅ Core implemented |
 | **Storage** | SQLite (expo-sqlite / rusqlite) | ⏳ Planned |
@@ -147,7 +147,7 @@ The project uses a comprehensive testing strategy:
 - **Type Checking**: TypeScript strict mode with `tsc --noEmit`
 - **CI/CD**: GitHub Actions running on every PR (typecheck, JS unit tests, native jest tests, build, Tauri desktop build)
 
-Test coverage is currently focused on the core package with 228 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, mDNS discovery, heartbeat/network logic, and interface selection.
+Test coverage is currently focused on the core and env packages with 234 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, mDNS discovery, heartbeat/network logic, and interface selection.
 
 ## 📚 Documentation
 

@@ -25,7 +25,7 @@ This is the root context map for the **PairSync** monorepo. Each context below d
   - Mobile UI for PairSync (iOS & Android)
   - Expo Router navigation
   - Mobile-specific permissions (LocalNetwork, Background Modes)
-  - Mobile-specific networking (react-native-udp, react-native-mdns)
+  - Mobile-specific networking (react-native-udp, react-native-zeroconf)
   - Mobile clipboard integration
   - Camera access for QR code scanning
 
@@ -48,7 +48,7 @@ This is the root context map for the **PairSync** monorepo. Each context below d
   - mDNS discovery engine (MdnsDiscovery over an MdnsService contract: service advertisement/browsing, own-service dedupe, service-loss callbacks) — ✅ implemented + tested (Phase 2.2); manual IP fallback — planned (Phase 2)
   - Device list manager (DeviceManager: add/update/remove with deduplication by device_id, timeout expiry with re-arm, lifecycle callbacks) — ✅ implemented + tested (Phase 2.3)
   - Transfer engine (chunked streaming, resume, verification) — planned (Phase 3)
-  - Security (TLS+TOFU, QR+ECDH handshake, encryption) — planned (Phase 4)
+  - Security (QR-authenticated ECDH→HKDF→AES-256-GCM over plaintext TCP, no TLS) — planned (Phase 4)
 
 #### ui
 - **Location:** `packages/ui/`
