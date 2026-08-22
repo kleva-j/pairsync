@@ -9,20 +9,20 @@
 
 ## Executive Summary
 
-This document provides a **detailed, efficient breakdown** of the PairSync implementation into **5 sequential phases**, accounting for the **current project state** (Turborepo monorepo skeleton with React + React Native + Tauri setup, but **no core functionality implemented**).
+This document provides a **detailed, efficient breakdown** of the PairSync implementation into **5 sequential phases**, accounting for the **current project state** (Turborepo monorepo skeleton with React + React Native + Tauri setup, with **core foundations implemented**: shared types, constants, platform utils, three XState machines, protocol constants, wire-message schemas, heartbeat protocol, interface selection, UDP multicast discovery, mDNS discovery, device list management, and connection initiation).
 
 The PRD describes a **cross-platform P2P file/clipboard sharing system** with:
 
 - Zero-configuration local network discovery (UDP Multicast + mDNS + Manual IP)
-- Secure transfers (TLS 1.3 + TOFU, with v2.0 QR+ECDH handshake as primary)
+- Secure transfers (v2.0 QR+ECDH handshake + AES-256-GCM session encryption; TOFU trust over QR-authenticated identities)
 - Chunked, resumable file transfers (4MB chunks, disk-buffered)
 - Cross-platform support (iOS, Android, macOS, Windows, Linux)
 - Background transfers, accessibility, localization
 
-**Key Insight:** The existing project structure provides a **solid foundation** (Turborepo, shared packages, platform-specific apps), but **all core logic must be built from scratch**. The implementation plan must account for:
+**Key Insight:** The existing project structure provides a **solid foundation** (Turborepo, shared packages, platform-specific apps), and **core foundations are complete** (types, constants, platform utils, three XState machines, protocol constants, wire-message schemas, heartbeat protocol, interface selection, UDP multicast discovery, mDNS discovery, device list management, and connection initiation). Remaining work accounts for:
 
 1. **Platform divergence** (React Native vs Tauri/Rust networking)
-2. **Cryptographic complexity** (TLS + ECDH + HKDF)
+2. **Cryptographic complexity** (ECDH + HKDF + AES-GCM)
 3. **Network edge cases** (multiple interfaces, IPv4/IPv6, firewalls)
 4. **State complexity** (device discovery, connection lifecycles, transfer states)
 
@@ -42,8 +42,8 @@ pairsync/
 │       └── app/       # Expo Router with basic drawer navigation
 ├── packages/
 │   ├── config/       # Shared TypeScript config (tsconfig.base.json)
-│   ├── core/         # @pairsync/core — manifest + turbo check-types wired up
-│   │   └── src/      # index.ts re-exports schema.ts, types.ts (still empty stubs)
+│   ├── core/         # @pairsync/core — shared domain logic (types, protocol, constants, utils, state machines, network, discovery)
+│   │   └── src/      # implemented: types, protocol schemas/constants, three XState machines, heartbeat, interface selection, UDP/mDNS discovery, device manager, connection initiation
 │   ├── env/          # @pairsync/env — zod-validated schemas
 │   │   └── src/      # web.ts (VITE_SERVER_URL), native.ts (EXPO_PUBLIC_SERVER_URL)
 │   └── ui/           # Shared shadcn/ui components
@@ -59,18 +59,18 @@ pairsync/
 
 | Category             | Status         | Notes                                                                 |
 | -------------------- | -------------- | --------------------------------------------------------------------- |
-| Core state machines  | ❌ Not started | XState/Zustand for device/transfer states                             |
-| Network discovery    | ❌ Not started | UDP multicast, mDNS, manual IP fallback                               |
-| TLS implementation   | ❌ Not started | Self-signed certs, TOFU trust model                                   |
-| ECDH handshake       | ❌ Not started | X25519 key exchange, HKDF derivation                                  |
-| QR pairing           | ❌ Not started | Generation, scanning, manual entry                                    |
-| File transfer        | ❌ Not started | Chunked streaming, resume, verification                               |
-| Clipboard sync       | ❌ Not started | Rich content type handling                                            |
-| Database             | ❌ Not started | SQLite for trusted devices, manifests                                 |
-| Background transfers | ❌ Not started | Platform-specific (iOS BG tasks, Android foreground service, desktop) |
-| Security UI          | ❌ Not started | Trust prompts, indicators, device management                          |
-| Accessibility        | ❌ Not started | WCAG 2.1 AA compliance                                                |
-| Localization         | ❌ Not started | i18n system                                                           |
+| Core state machines  | ✅ Done (Ph1)  | Three XState machines (device, discovery, transfer), comprehensively tested |
+| Network discovery    | 🚧 Partial     | UDP multicast, mDNS, device manager, connection initiation shipped (2.1–2.4); manual IP (2.8) + repeater (2.7, post-MVP) pending |
+| Secure transport    | ❌ Planned (Ph4) | ECDH + AES-256-GCM session encryption (QR-authenticated)            |
+| ECDH handshake      | ❌ Planned (Ph4) | X25519 (identity + ephemeral), HKDF derivation                    |
+| QR pairing           | ❌ Planned (Ph4) | Generation, scanning, manual entry                                    |
+| File transfer        | ❌ Planned (Ph3) | Chunked streaming, resume, verification                               |
+| Clipboard sync       | ❌ Planned (Ph3) | Rich content type handling                                            |
+| Database             | ❌ Planned (Ph3) | SQLite for trusted devices, manifests (re-sequenced from Phase 2)     |
+| Background transfers | ❌ Planned (Ph5) | Platform-specific (iOS BG tasks, Android foreground service, desktop) |
+| Security UI          | ❌ Planned (Ph4) | Trust prompts, indicators, device management                          |
+| Accessibility        | ❌ Planned (Ph5) | WCAG 2.1 AA compliance                                                |
+| Localization         | ❌ Planned (Ph5) | i18n system                                                           |
 
 ### Technology Stack Confirmed
 
@@ -80,12 +80,12 @@ pairsync/
 | Shared Core        | TypeScript (Strict)                                                               | ✅ Ready           |
 | Mobile UI          | React Native + Expo + uniwind                                                     | ✅ Skeleton exists |
 | Desktop UI         | Tauri + React + Vite + Tailwind                                                   | ✅ Skeleton exists |
-| Mobile Networking  | `react-native-udp`, `react-native-mdns`, `expo-file-system`                       | ⚠️ Not integrated  |
-| Desktop Networking | Tauri Rust plugins (`socket2`/tokio UDP, `mdns` crate, `rustls`)                  | ⚠️ Not integrated  |
+| Mobile Networking  | `react-native-udp`, `react-native-zeroconf`, `react-native-tcp-socket`, `expo-file-system`        | ⚠️ Not integrated  |
+| Desktop Networking | Tauri Rust plugins (`socket2`/tokio UDP, `mdns-sd`)                  | ⚠️ Not integrated  |
 | Crypto (Mobile)    | `react-native-quick-crypto` (X25519, SHA-256, HKDF, AES-256-GCM) — spike-verified | ⚠️ Not integrated  |
-| Crypto (Desktop)   | `x25519-dalek`, `hkdf`, `aes-gcm`, `rustls` (Rust crates)                         | ⚠️ Not integrated  |
+| Crypto (Desktop)   | `x25519-dalek`, `hkdf`, `aes-gcm` (Rust crates)                         | ⚠️ Not integrated  |
 | QR Code            | `react-native-qrcode-svg`, `react-native-vision-camera`, `qrcode`, `zbar`         | ⚠️ Not integrated  |
-| State              | XState + Zustand                                                                  | ⚠️ Not integrated  |
+| State              | XState (three machines) + platform-local React state                               | ⚠️ Not integrated  |
 | Storage            | SQLite (`expo-sqlite` / `rusqlite`)                                               | ⚠️ Not integrated  |
 
 ---
@@ -125,7 +125,7 @@ The PRD's 5-phase plan is **well-structured** but needs **refinement** for:
                                     ↓
 ┌─────────────────────────────────────────────────────────────────┐
 │                      PHASE 4: TRUST & SECURITY                  │
-│  (Week 7-8) - QR+ECDH Handshake, TLS+TOFU, Security UI          │
+│  (Week 7-8) - QR+ECDH Handshake, AES-GCM Encryption, Security UI│
 └─────────────────────────────────────────────────────────────────┘
                                     ↓
 ┌─────────────────────────────────────────────────────────────────┐
@@ -138,9 +138,11 @@ The PRD's 5-phase plan is **well-structured** but needs **refinement** for:
 
 ### Scope Decision: MVP Security Ordering (Approved v1.0)
 
-**Decision:** Plaintext Phase 3 transfers are approved **for development only**. Security (TLS 1.3 + TOFU, and QR+ECDH) ships in Phase 4, and **the MVP release is gated on Phase 4 completion** — the Phase 3 plaintext TCP path is an internal test artifact and **never ships**.
+**Decision:** Plaintext Phase 3 transfers are approved **for development only**. Security (QR+ECDH + AES-256-GCM application-level encryption, with TOFU trust over QR-authenticated identities) ships in Phase 4, and **the MVP release is gated on Phase 4 completion** — the Phase 3 plaintext TCP path is an internal test artifact and **never ships**.
 
-**Rationale:** Keeps the PRD's "MVP LOCKED" security scope (Section 3.3, end-to-end encryption) intact at release while preserving the plan's testing order — transfer bugs are easier to isolate before TLS/crypto layers are added. This splits the PRD's own Phase 3 ("TLS Handshake & Chunked File Streaming") into testable units without weakening the shipped security model.
+**Rationale:** Keeps the PRD's "MVP LOCKED" security scope (Section 3.3, end-to-end encryption) intact at release while preserving the plan's testing order — transfer bugs are easier to isolate before crypto layers are added. This splits the PRD's own Phase 3 ("TLS Handshake & Chunked File Streaming") into testable units without weakening the shipped security model.
+
+*Transport decision:* the PRD's TLS 1.3 + self-signed-cert TOFU is **not** implemented in this plan. TLS 1.3 with custom certificate validation has no cross-platform mobile path (react-native-quick-crypto provides X25519/HKDF/AES-GCM only, and no native TLS adapter is planned), and cert-TOFU would duplicate the QR trust flow. The **sole** transport-security scheme is application-level **ECDH→HKDF→AES-256-GCM** over plaintext TCP, authenticated out-of-band by the QR pairing payload (device info + identity public key). This removes double encryption, one cert-TOFU UI, and the separate TLS maintenance surface.
 
 **Implications:**
 
@@ -170,7 +172,7 @@ The current project is a **skeleton**. Without proper foundation:
 | 0.1 | Validate build pipeline         | Ensure `pnpm install`, `pnpm dev`, `pnpm build` work for all targets (web, native, desktop) | DevOps | All targets build without errors                                  | Medium | Fix any TurboRepo config issues early      |
 | 0.2 | Set up shared TypeScript config | Create `packages/config` with shared `tsconfig.json` for all packages                       | Core   | All packages compile with shared rules                            | Low    | Use `extends` in package tsconfigs         |
 | 0.3 | Create core package structure   | Set up `packages/core/src/` with proper module structure                                    | Core   | Importable from all apps                                          | Low    | Follow monorepo best practices             |
-| 0.4 | Create env package              | Shared environment detection, platform constants                                            | Core   | `import { isMobile, isDesktop, PORT } from '@pairsync/env'` works | Low    | Simple utility package                     |
+| 0.4 | Create env package              | Shared zod-validated environment schemas (`@t3-oss/env-core`) for web and native           | Core   | `import { env } from '@pairsync/env/web'` and `import { env } from '@pairsync/env/native'` validate `VITE_SERVER_URL` / `EXPO_PUBLIC_SERVER_URL` | Low    | Simple utility package                     |
 | 0.5 | Set up testing infrastructure   | Jest/Vitest for unit tests, Playwright for E2E (web), Detox for E2E (native)                | DevOps | Test frameworks configured and passing basic tests                | High   | Testing is critical for reliability        |
 | 0.6 | Create shared utility types     | Device, Transfer, Chunk, Protocol types                                                     | Core   | Types used consistently across all packages                       | Medium | Get types right early to avoid refactoring |
 | 0.7 | Document development workflow   | Contributing guide, commit conventions, PR template                                         | DevOps | Team can onboard quickly                                          | Low    | Standardize early                          |
@@ -181,7 +183,7 @@ The current project is a **skeleton**. Without proper foundation:
 - ✅ **0.2** — `packages/config/tsconfig.base.json` exists and is extended by every package
 - ✅ **0.3** — `@pairsync/core` has a manifest, entry point, and turbo `check-types` task
 - ✅ **0.4** — `@pairsync/env` provides zod-validated `./web` and `./native` schemas
-- ✅ **0.5** — vitest wired into `@pairsync/core` + `@pairsync/env` with 17 passing unit tests; turbo `test` task, root `pnpm test`, and a CI `test` job added (E2E — Playwright/Detox — deferred to later phases)
+- ✅ **0.5** — vitest wired into `@pairsync/core` + `@pairsync/env` with 234 passing unit tests; turbo `test` task, root `pnpm test`, and a CI `test` job added (E2E — Playwright/Detox — deferred to later phases)
 - ✅ **0.6** — shared types (`device`/`transfer`/`protocol`), constants (ports/timeouts/sizes), and platform utils implemented in `@pairsync/core` with tests
 - ✅ **0.7** — `.github/CONTRIBUTING.md` and `.github/pull_request_template.md` added
 
@@ -208,8 +210,9 @@ packages/
 │   │   └── index.ts             # Package entry point
 └── env/
     └── src/
-        ├── index.ts             # Platform detection, env vars
-        └── constants.ts          # Shared constants
+        ├── web.ts               # VITE_SERVER_URL schema (t3-oss)
+        ├── native.ts            # EXPO_PUBLIC_SERVER_URL schema (t3-oss)
+        └── vite-env.d.ts        # Vite client types
 
 apps/
 ├── web/
@@ -253,7 +256,7 @@ apps/
 
 | ID  | Task                               | Description                                                                 | Owner | Success Criteria                                    | Risk   | Mitigation                             |
 | --- | ---------------------------------- | --------------------------------------------------------------------------- | ----- | --------------------------------------------------- | ------ | -------------------------------------- |
-| 1.1 | Design state machine               | Create XState machines for: DeviceState, DiscoveryState, TransferState      | Core  | State diagrams documented and reviewed              | High   | Complex state logic - design carefully |
+| 1.1 | Design state machine               | Create XState machines for: `deviceMachine`, `discoveryMachine`, `transferMachine` | Core  | State diagrams documented and reviewed              | High   | Complex state logic - design carefully |
 | 1.2 | Implement device state machine     | `IDLE` ↔ `SCANNING` ↔ `DISCOVERED` ↔ `CONNECTING` ↔ `CONNECTED` ↔ `ERROR`   | Core  | State transitions work correctly                    | High   | Test all edge cases                    |
 | 1.3 | Implement discovery state machine  | Manages network scanning, device list, timeouts                             | Core  | Devices appear/disappear correctly                  | Medium | Handle race conditions                 |
 | 1.4 | Implement transfer state machine   | `PREPARING` → `TRANSFERRING` → `VERIFYING` → `COMPLETE`/`ERROR`/`CANCELLED` | Core  | All transfer states handled                         | High   | Complex resume logic                   |
@@ -298,11 +301,11 @@ packages/core/src/
 
 ### Success Criteria
 
-- [ ] All state machines are implemented and tested
-- [ ] Heartbeat protocol logic works in isolation
-- [ ] Interface selection logic handles all edge cases
-- [ ] Protocol constants are shared and consistent
-- [ ] Unit test coverage ≥ 90% for core logic
+- [x] All state machines are implemented and tested
+- [x] Heartbeat protocol logic works in isolation
+- [x] Interface selection logic handles all edge cases
+- [x] Protocol constants are shared and consistent
+- [ ] Unit test coverage ≥ 90% for core logic (pending coverage measurement)
 
 ### Dependencies
 
@@ -334,8 +337,22 @@ packages/core/src/
 This phase implements the **3-tier discovery system**:
 
 1. **Tier 1:** UDP Multicast (primary)
-2. **Tier 2:** mDNS (cross-subnet with repeater)
+2. **Tier 2:** mDNS (same subnet; cross-subnet repeater is post-MVP)
 3. **Tier 3:** Manual IP entry (fallback)
+
+**Why three tiers?** No single mechanism works on every LAN, so each tier
+covers a different failure mode at rising cost. Custom **UDP multicast** is the
+cheapest high-value path but is trivially blocked by AP/client isolation,
+guest Wi-Fi, and enterprise networks. Standard **mDNS** interoperates with the
+surrounding ecosystem (`.local` names, Bonjour) and part of the iOS
+Local-Network permission story, but is **link-local scope** — it dies at subnet
+boundaries, hence the deferred repeater (2.7). **Manual IP entry** is the
+failsafe when both discovery paths are blocked, reusing the normal connection
+path. The layering is **complementary, not redundant** — the failure modes are
+**partly independent**; both UDP multicast and mDNS depend on local-network
+multicast and permissions, so AP/client isolation, guest Wi-Fi, firewalls, and
+permission policies may block both — manual IP entry is the fallback when
+either or both discovery methods fail.
 
 ### Tasks
 
@@ -344,21 +361,20 @@ This phase implements the **3-tier discovery system**:
 | ID  | Task                              | Description                                                                            | Success Criteria                           | Risk     | Mitigation                                       |
 | --- | --------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------ | -------- | ------------------------------------------------ |
 | 2.1 | Implement UDP multicast discovery | Send/receive heartbeat messages on `224.0.0.1:53350` (IPv4) and `FF02::1:53350` (IPv6) | Devices discover each other on same subnet | Medium   | NAT loopback, firewall issues                    |
-| 2.2 | Implement mDNS discovery          | Advertise and discover `_pairsync._tcp.local` services                                 | Cross-subnet discovery works with repeater | Medium   | mDNS library differences                         |
+| 2.2 | Implement mDNS discovery          | Advertise and discover `_pairsync._tcp.local` services                                 | mDNS discovery works on the local subnet    | Medium   | mDNS library differences                         |
 | 2.3 | Implement device list management  | Add/remove devices, handle timeouts, deduplicate                                       | Device list updates correctly in UI        | Low      | Use existing state machines                      |
-| 2.4 | Implement connection initiation   | TCP handshake to establish connection before transfer                                  | Connection established successfully        | Medium   | TLS not yet implemented - plain TCP for now      |
+| 2.4 | Implement connection initiation   | TCP handshake to establish connection before transfer                                  | Connection established successfully        | Medium   | Encryption added in Phase 4 - plain TCP for now      |
 | 2.5 | Create platform abstraction layer | Abstract UDP/mDNS/TCP operations behind common interface                               | Same code works on all platforms           | **HIGH** | This is the key to cross-platform                |
 | 2.6 | Unit & integration tests          | Test discovery across platforms                                                        | Discovery works in test environment        | High     | Network testing is tricky                        |
-| 2.7 | Implement mDNS repeater           | Relay/bridge `_pairsync._tcp.local` discovery across subnets (PRD Tier 2)              | Cross-subnet discovery works end-to-end    | **HIGH** | New always-on component; needs a deployment home |
-| 2.8 | Set up SQLite database layer      | `expo-sqlite` (mobile), `rusqlite` (desktop); schema + migrations (moved from Phase 5) | DB initializes on both platforms           | Medium   | Platform SQLite APIs differ                      |
-| 2.9 | Schema versioning & migrations    | Track schema version, apply migrations on launch                                       | Migrations apply automatically             | Medium   | Test migrations thoroughly                       |
+| 2.7 | Implement mDNS repeater           | Relay/bridge `_pairsync._tcp.local` discovery across subnets (PRD Tier 2)              | Cross-subnet discovery works end-to-end    | **HIGH** | **Deferred to post-MVP** — needs an always-on deployment home; same-subnet coverage (2.1/2.2) ships first |
+| 2.8 | Implement manual IP entry         | Add a peer manually by IP:port (Tier 3 fallback); validate reachability, feed into DeviceManager | Manual IP entry works without discovery    | Low      | Reuse connection initiation (2.4)                |
 
 #### Mobile-Specific Tasks (Mobile Team)
 
 | ID   | Task                                            | Description                                                                       | Success Criteria                            |
 | ---- | ----------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------- |
 | 2.M1 | Integrate `react-native-udp`                    | Bind native UDP socket for multicast                                              | UDP messages sent/received on mobile        |
-| 2.M2 | Integrate `react-native-mdns`                   | Bind native mDNS for service discovery                                            | mDNS discovery works on mobile              |
+| 2.M2 | Integrate `react-native-zeroconf`                   | Bind native mDNS for service discovery                                            | mDNS discovery works on mobile              |
 | 2.M3 | Handle Android/iOS network permissions          | Request `INTERNET`, `LocalNetwork` permissions                                    | Permissions requested and granted           |
 | 2.M4 | Implement platform-specific interface detection | Detect Wi-Fi, Ethernet, VPN, loopback on mobile                                   | Interfaces correctly identified             |
 | 2.M5 | Request iOS multicast entitlement               | Apply for `com.apple.developer.networking.multicast` entitlement (Apple approval) | Entitlement granted; multicast works on iOS |
@@ -375,50 +391,39 @@ This phase implements the **3-tier discovery system**:
 ### Deliverables
 
 ```
+# @pairsync/core — platform-agnostic engines + adapter *contracts* (no native deps)
 packages/core/src/
 ├── discovery/
-│   ├── udp.ts                   # UDP multicast discovery logic
-│   ├── mdns.ts                  # mDNS discovery logic
+│   ├── udp.ts                   # UDP multicast engine (MulticastSocket contract)
+│   ├── mdns.ts                  # mDNS engine (MdnsService contract)
 │   ├── manual.ts                # Manual IP entry logic
 │   ├── deviceManager.ts         # Manages discovered device list
-│   ├── connection.ts            # TCP connection establishment
-│   └── index.ts
-├── platform/
-│   ├── mobile/
-│   │   ├── udp.ts               # react-native-udp integration
-│   │   ├── mdns.ts              # react-native-mdns integration
-│   │   └── index.ts
-│   ├── desktop/
-│   │   ├── udp.ts               # Tauri UDP plugin commands
-│   │   ├── mdns.ts              # Tauri mDNS plugin commands
-│   │   └── index.ts
-│   └── index.ts                 # Platform abstraction exports
-├── database/
-│   ├── sqlite.ts                # SQLite database setup
-│   ├── schema.ts                # Database schema
-│   ├── migrations/              # Migration scripts
-│   │   └── 001_initial.ts
+│   ├── connection.ts            # TCP engine (TcpSocket contract)
 │   └── index.ts
 └── __tests__/
     ├── discovery.test.ts
     └── connection.test.ts
 
-# Tauri Plugins (new)
-apps/web/src-tauri/
-├── plugins/
-│   ├── pairsync-udp/           # UDP multicast plugin
-│   │   ├── Cargo.toml
-│   │   ├── src/lib.rs
-│   │   └── ...
-│   └── pairsync-mdns/           # mDNS plugin
-│       ├── Cargo.toml
-│       └── src/lib.rs
+# Platform adapters live in each app, implementing the core contracts
+# (same pattern already used for MulticastSocket / MdnsService / TcpSocket).
+apps/native/src/platform/
+├── udp.ts                       # react-native-udp → MulticastSocket
+├── mdns.ts                      # react-native-zeroconf → MdnsService
+├── tcp.ts                       # react-native-tcp-socket → TcpSocket
+└── index.ts
+apps/web/src-tauri/plugins/      # Rust/Tauri adapters → same contracts
+├── pairsync-udp/                # UDP multicast plugin
+│   ├── Cargo.toml
+│   └── src/lib.rs
+└── pairsync-mdns/               # mDNS plugin
+    ├── Cargo.toml
+    └── src/lib.rs
 ```
 
 ### Success Criteria
 
 - [ ] Devices discover each other via UDP multicast on same subnet
-- [ ] mDNS discovery works across subnets (with repeater)
+- [ ] mDNS discovery works on the local subnet (cross-subnet repeater deferred to post-MVP)
 - [ ] Manual IP entry fallback works
 - [ ] Connection establishment works (plain TCP for now)
 - [ ] All platform-specific implementations use the abstraction layer
@@ -477,17 +482,18 @@ This phase implements:
 | 3.8  | Implement clipboard transfer                  | Handle all supported content types (text, images, etc.)                                      | Clipboard content transferred correctly            | Medium   | Platform differences in clipboard APIs |
 | 3.9  | Handle large folder trees                     | Batched manifest generation, user warnings                                                   | Large folders handled gracefully                   | Medium   | Memory usage, performance              |
 | 3.10 | Handle partial failure modes                  | Disk full, permissions, app kill, network drop                                               | Appropriate error messages and recovery            | **HIGH** | Many edge cases                        |
-| 3.11 | Persist transfer manifests                    | Store manifests + chunk bitmap in SQLite for resume across app restarts (moved from Phase 5) | Resume works after app restart                     | Medium   | Atomic writes, checksums on manifest   |
+| 3.11 | Set up SQLite database layer                  | `expo-sqlite` (mobile), `rusqlite` (desktop); schema + migrations (re-sequenced from Phase 2) | DB initializes on both platforms                   | Medium   | Platform SQLite APIs differ            |
+| 3.12 | Schema versioning & migrations                | Track schema version, apply migrations on launch                                             | Migrations apply automatically                     | Medium   | Test migrations thoroughly             |
+| 3.13 | Persist transfer manifests                    | Store manifests + chunk bitmap in SQLite for resume across app restarts (moved from Phase 5) | Resume works after app restart                     | Medium   | Atomic writes, checksums on manifest   |
 
 #### Platform-Specific Tasks
 
 | ID   | Task                                             | Description                                        | Success Criteria                                          |
 | ---- | ------------------------------------------------ | -------------------------------------------------- | --------------------------------------------------------- |
-| 3.M1 | Integrate `expo-file-system` for mobile file I/O | Read/write files on mobile with proper permissions | File operations work on mobile                            |
-| 3.M2 | Implement mobile background transfer support     | Keep transfers alive when app backgrounded         | Transfers continue in background (within platform limits) |
-| 3.M3 | Handle mobile storage permissions                | Request and handle storage permission changes      | Permissions handled gracefully                            |
+| 3.M1 | Integrate `expo-file-system` for mobile file I/O | Read/write files on mobile with proper permissions. Already resolvable as part of the Expo SDK 57 core set (`~57.0.2`) — add as a direct dependency only when first imported | File operations work on mobile                            |
+| 3.M2 | Handle mobile storage permissions                | Request and handle storage permission changes      | Permissions handled gracefully                            |
 | 3.D1 | Implement desktop file I/O                       | Read/write files on desktop                        | File operations work on desktop                           |
-| 3.D2 | Implement desktop background transfer support    | Transfers continue when app minimized              | Transfers continue in background                          |
+| 3.D2 | Handle desktop storage permissions               | Request and handle storage permission changes      | Permissions handled gracefully                            |
 
 ### Deliverables
 
@@ -511,7 +517,8 @@ packages/core/src/
 └── __tests__/
     ├── transfer.test.ts
     ├── resume.test.ts
-    └── verify.test.ts
+    ├── verify.test.ts
+    └── database.test.ts
 ```
 
 ### Success Criteria
@@ -551,14 +558,14 @@ packages/core/src/
 
 ## Phase 4: Trust & Security (Weeks 7-8)
 
-**Purpose:** Implement **TLS+TOFU** and **QR+ECDH handshake** for secure connections.
+**Purpose:** Implement the **QR+ECDH handshake** and **AES-256-GCM session encryption** for secure connections.
 
 ### Overview
 
-This phase adds security to the connections established in Phase 2:
+This phase secures the connections established in Phase 2:
 
-- **TLS 1.3** with self-signed certificates (TOFU model)
-- **QR+ECDH handshake** (v2.0 primary trust method)
+- **QR+ECDH handshake** (v2.0 primary trust method): X25519 + HKDF session keys
+- **AES-256-GCM session encryption** (application-level, the sole transport-security layer)
 - **Trust management UI**
 - **Security indicators**
 
@@ -567,9 +574,20 @@ This phase adds security to the connections established in Phase 2:
 **Critical Design Decision:** Security is implemented **after** basic transfer functionality because:
 
 1. **Testing is easier** - Verify transfer works, then add security layer
-2. **Debugging is simpler** - Can debug transfer issues without TLS complexity
+2. **Debugging is simpler** - Can debug transfer issues without crypto complexity
 3. **Risk reduction** - If transfer has bugs, we find them before adding security
 4. **QR+ECDH depends on connection** - Need working connection to test handshake
+
+### Transport & Framing (hardened)
+
+Four non-negotiable hardening requirements for the custom transport, since it replaces TLS's audited record/handshake layer:
+
+1. **Forward secrecy + authenticated key exchange.** Never derive session keys from static-static ECDH alone. Each session uses a fresh **ephemeral** X25519 keypair; the ephemeral keys are authenticated by both long-term identity keys via an **authenticated key-exchange pattern** (e.g., Noise-style static/ephemeral cross-DH with transcript signatures, or explicit role-bound cross-DH combining `ECDH(eph_A, eph_B)` and `ECDH(id_A, id_B)` through HKDF with explicit initiator/responder role binding). A leaked identity key then cannot decrypt past sessions, and **key-compromise impersonation (KCI) is prevented** by transcript binding and role separation.
+2. **AEAD envelope + directional nonce discipline.** Every application message is an envelope `{ nonce, ciphertext }`. Nonces must be **unique per session key per direction** — derive independent per-direction keys via HKDF with distinct info strings (`info = "A→B"` / `"B→A"`) or encode direction in the nonce, and rotate session keys before the nonce space or the GCM data limit (~64 GiB) is exhausted. **Nonce reuse under GCM is catastrophic** — the runtime encryption/decryption path must reject nonce reuse under a session key and fail closed (not merely test for it).
+3. **Key confirmation + transcript binding.** The handshake ends with both sides confirming they derived the same session key (e.g., a confirm MAC) and the transcript binds the identity keys and nonces, so neither side can be swapped mid-handshake and key-compromise impersonation (KCI) is prevented.
+4. **Post-handshake session-key fingerprint.** After the handshake, both devices display the **fingerprint of the derived session key** (not the identity key), compared in-person during pairing (4.U1). This catches a mistyped/misscanned QR payload or an attacker who somehow authenticated the exchange.
+
+Framing itself stays as decided in Phase 3 (length-prefixed binary for native TCP, JSON/base64 for the web WebSocket path); the envelope in (2) is applied to each message before framing. The `X-Cert-Fingerprint` header from Phase 1.5 **will be renamed to** `X-Identity-Fingerprint` (identities, not certs) **as part of Phase 4 identity work**.
 
 ### Tasks
 
@@ -577,19 +595,19 @@ This phase adds security to the connections established in Phase 2:
 
 | ID   | Task                                  | Description                                                                                    | Success Criteria                               | Risk     | Mitigation                           |
 | ---- | ------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------- | -------- | ------------------------------------ |
-| 4.1  | Generate self-signed TLS certificates | Create 30-day validity certs on first launch                                                   | Certs generated and stored securely            | Medium   | Key management, platform differences |
-| 4.2  | Implement TOFU trust model            | First-time trust prompt with fingerprint, auto-trust subsequent                                | Trust flow works correctly                     | Medium   | User confusion about certs           |
-| 4.3  | Implement certificate storage         | OS keychain (mobile), encrypted file (desktop)                                                 | Certs stored securely, persist across restarts | High     | Platform-specific security APIs      |
-| 4.4  | Implement certificate regeneration    | Auto-regenerate when ≤7 days from expiry                                                       | New certs generated and trust prompts shown    | Medium   | User experience with re-trusting     |
-| 4.5  | Implement X25519 key generation       | Shared core crypto for ECDH                                                                    | Keys generated and serialized correctly        | Medium   | Crypto library differences           |
-| 4.6  | Implement ECDH key exchange + HKDF    | Shared secret derivation, session key generation                                               | Session keys derived correctly                 | **HIGH** | Crypto is hard to get right          |
-| 4.7  | Implement AES-256-GCM encryption      | Encrypt/decrypt transfer data                                                                  | Data encrypted and decrypted correctly         | **HIGH** | Crypto is hard to get right          |
+| 4.1  | Generate device identity keypair      | Generate and persist the device X25519 identity key on first launch | Identity key generated and stored securely            | Medium   | Key management, platform differences |
+| 4.2  | Implement TOFU trust model            | First-contact trust via QR (or manual payload entry), auto-trust by stored peer public key subsequently | Trust flow works correctly                             | Medium   | User confusion about trust            |
+| 4.3  | Implement device key storage          | OS keychain (mobile), encrypted file (desktop)                      | Identity key stored securely, persists across restarts | High     | Platform-specific security APIs      |
+| 4.4  | Handle identity key rotation          | Regenerate identity key on demand/compromise; affected peers re-pair via QR | Re-pairing works without reinstalling                  | Medium   | User experience with re-trusting     |
+| 4.5  | Implement X25519 key generation       | Shared core crypto: long-term identity keys + per-session ephemeral keys | Keys generated and serialized correctly        | Medium   | Crypto library differences           |
+| 4.6  | Implement ECDH key exchange + HKDF    | Ephemeral ECDH authenticated by identity keys, HKDF derivation binding both to the transcript, key confirmation (see Transport & Framing) | Session keys derived with forward secrecy + key confirmation | **HIGH** | Crypto is hard to get right          |
+| 4.7  | Implement AES-256-GCM encryption      | Encrypt/decrypt transfer data with unique per-message nonces (HKDF-derived counter per session key) | Data encrypted and decrypted correctly; nonce reuse impossible | **HIGH** | Crypto is hard to get right          |
 | 4.8  | Implement QR code payload generation  | Create QR code with device info + public key                                                   | QR code contains correct payload               | Low      | JSON serialization                   |
 | 4.9  | Implement QR code payload parsing     | Parse QR code, validate expiry, extract device info                                            | QR code parsed correctly                       | Low      | Input validation                     |
 | 4.10 | Implement long-term trust storage     | Store peer public keys in SQLite (trusted devices) for future connections (moved from Phase 5) | Long-term trust works without QR code          | Medium   | Key storage security                 |
-| 4.11 | Implement fallback to TLS+TOFU        | When QR unavailable, use TLS+TOFU                                                              | Seamless fallback                              | Low      | Already have TLS+TOFU implemented    |
+| 4.11 | Implement manual pairing fallback     | When QR scanning is unavailable, enter/receive the pairing payload manually | Pairing fallback works without QR                     | Low      | Reuse QR payload parse + manual entry UI |
 | 4.12 | Implement Quick Save rate limiting    | 10 transfers/minute, 1GB/hour per device                                                       | Rate limits enforced                           | Low      | Simple counter logic                 |
-| 4.13 | Add security to connection layer      | Integrate TLS/AES encryption with transfer engine                                              | Transfers are encrypted                        | **HIGH** | Integration complexity               |
+| 4.13 | Add encryption to connection layer    | Wrap transfer streams with the AEAD envelope (nonce+ciphertext) using ECDH+HKDF session keys; re-key per session and rotate before nonce exhaustion | Transfers are encrypted end-to-end with forward secrecy | **HIGH** | Integration complexity               |
 
 #### Platform-Specific Tasks
 
@@ -598,12 +616,12 @@ This phase adds security to the connections established in Phase 2:
 | 4.M1 | Integrate `react-native-quick-crypto` for mobile | X25519, SHA-256, HKDF, AES-256-GCM on mobile (spike-verified) | Crypto operations work on mobile  |
 | 4.M2 | Implement mobile QR code generation              | `react-native-qrcode-svg` for QR code display                 | QR codes generated on mobile      | Low    | Library integration                   |
 | 4.M3 | Implement mobile QR code scanning                | `react-native-vision-camera` for scanning                     | QR codes scanned on mobile        | Medium | Camera permissions, scanning accuracy |
-| 4.M4 | Implement mobile certificate storage             | iOS Keychain, Android Keystore                                | Certs stored securely on mobile   | High   | Platform-specific APIs                |
-| 4.D1 | Integrate Rust crypto libraries                  | `x25519-dalek`, `ring` for desktop                            | Crypto operations work on desktop | High   | Rust library integration              |
-| 4.D2 | Create Tauri plugin for QR scanning              | `zbar` integration for desktop QR scanning                    | QR codes scanned on desktop       | Medium | Desktop camera access                 |
-| 4.D3 | Implement desktop QR code generation             | `qrcode` library for generation                               | QR codes generated on desktop     | Low    | Library integration                   |
-| 4.D4 | Implement desktop certificate storage            | Encrypted file storage                                        | Certs stored securely on desktop  | Medium | File encryption                       |
-| 4.D5 | Handle desktop firewall for TLS                  | Ensure TLS ports are open                                     | TLS connections work              | Low    | Firewall configuration                |
+| 4.M4 | Implement mobile key storage            | iOS Keychain, Android Keystore                                | Identity keys stored securely on mobile   | High   | Platform-specific APIs                |
+| 4.D1 | Integrate Rust crypto libraries          | `x25519-dalek`, `hkdf`, `aes-gcm` for desktop                            | Crypto operations work on desktop | High   | Rust library integration              |
+| 4.D2 | Create Tauri plugin for QR scanning      | `zbar` integration for desktop QR scanning                    | QR codes scanned on desktop       | Medium | Desktop camera access                 |
+| 4.D3 | Implement desktop QR code generation     | `qrcode` library for generation                               | QR codes generated on desktop     | Low    | Library integration                   |
+| 4.D4 | Implement desktop key storage            | Encrypted file storage                                        | Identity keys stored securely on desktop  | Medium | File encryption                       |
+| 4.D5 | Handle desktop firewall for transfers    | Ensure transfer TCP ports (53351–53360) are open              | Transfers work through the firewall       | Low    | Firewall configuration                |
 
 #### UI Tasks (UI Team)
 
@@ -622,28 +640,27 @@ This phase adds security to the connections established in Phase 2:
 ```
 packages/core/src/
 ├── security/
-│   ├── tls/
-│   │   ├── certificate.ts        # Self-signed cert generation
-│   │   ├── storage.ts            # Cert storage (keychain/encrypted file)
-│   │   ├── tofu.ts               # TOFU trust model
+│   ├── identity/
+│   │   ├── keygen.ts           # X25519 device identity key generation
+│   │   ├── storage.ts          # Key storage (keychain/encrypted file)
+│   │   ├── trust.ts            # TOFU trust model over peer identities
 │   │   └── index.ts
 │   ├── ecdh/
-│   │   ├── keygen.ts             # X25519 key generation
-│   │   ├── handshake.ts          # ECDH key exchange + HKDF
-│   │   ├── encryption.ts         # AES-256-GCM encryption/decryption
+│   │   ├── handshake.ts        # ECDH key exchange + HKDF
+│   │   ├── encryption.ts       # AES-256-GCM encryption/decryption
 │   │   └── index.ts
 │   ├── qr/
-│   │   ├── payload.ts            # QR code payload generation/parsing
-│   │   ├── expiry.ts              # Expiry validation
+│   │   ├── payload.ts          # QR code payload generation/parsing
+│   │   ├── expiry.ts           # Expiry validation
 │   │   └── index.ts
 │   ├── trust/
-│   │   ├── storage.ts            # Long-term trust storage
-│   │   ├── rateLimit.ts          # Quick Save rate limiting
+│   │   ├── storage.ts          # Long-term trust storage
+│   │   ├── rateLimit.ts        # Quick Save rate limiting
 │   │   └── index.ts
 │   └── index.ts
 ├── __tests__/
 │   ├── security.test.ts
-│   ├── tls.test.ts
+│   ├── identity.test.ts
 │   ├── ecdh.test.ts
 │   └── qr.test.ts
 │
@@ -660,14 +677,17 @@ packages/ui/src/components/
 
 ### Success Criteria
 
-- [ ] TLS+TOFU trust model works correctly
-- [ ] QR+ECDH handshake establishes secure channel
+- [ ] QR+ECDH + AES-256-GCM secure channel works end-to-end
 - [ ] Transfers are encrypted end-to-end
+- [ ] Ephemeral keys per session: past sessions stay confidential after identity-key compromise (forward secrecy)
+- [ ] Handshake completes with key confirmation (both sides derive identical session keys, transcript-bound)
+- [ ] Per-message nonces are unique; nonce reuse is fail-closed in tests
+- [ ] Post-handshake session-key fingerprint matches on both devices during pairing
 - [ ] Trust prompts appear when expected
 - [ ] Security indicators display correctly
 - [ ] Quick Save rate limiting enforced
-- [ ] Fallback to TLS+TOFU works seamlessly
-- [ ] Certificate regeneration handled gracefully
+- [ ] Manual pairing-entry fallback works when QR is unavailable
+- [ ] Identity key rotation and re-pairing handled gracefully
 - [ ] All platform-specific crypto works correctly
 
 ### Dependencies
@@ -687,12 +707,12 @@ packages/ui/src/components/
 
 | Risk                            | Probability | Impact       | Mitigation                                    |
 | ------------------------------- | ----------- | ------------ | --------------------------------------------- |
-| Crypto implementation bugs      | Medium      | **CRITICAL** | Use well-audited libraries, extensive testing |
-| Key management vulnerabilities  | Medium      | **CRITICAL** | Platform-native secure storage, encryption    |
-| TLS implementation issues       | Medium      | **CRITICAL** | Use established TLS libraries                 |
-| QR code parsing vulnerabilities | Low         | Medium       | Input validation, expiry checks               |
-| User confusion about security   | High        | Medium       | Clear UI, good documentation                  |
-| Certificate regeneration UX     | Medium      | Medium       | Clear prompts, explanations                   |
+| Crypto implementation bugs      | Medium        | **CRITICAL** | Use well-audited libraries, extensive testing |
+| Key management vulnerabilities  | Medium        | **CRITICAL** | Platform-native secure storage, encryption    |
+| Session key derivation issues   | Medium        | **CRITICAL** | Use established libraries (X25519/HKDF/AES-GCM) |
+| QR code parsing vulnerabilities | Low           | Medium       | Input validation, expiry checks               |
+| User confusion about security   | High          | Medium       | Clear UI, good documentation                  |
+| Identity key rotation UX        | Medium        | Medium       | Clear prompts, explanations                   |
 
 ---
 
@@ -741,27 +761,37 @@ packages/ui/src/components/
 ### Deliverables
 
 ```
+# @pairsync/core — cross-platform background orchestration only
 packages/core/src/
-├── background/
-│   ├── ios.ts                   # iOS background task integration
-│   ├── android.ts               # Android foreground service integration
-│   ├── desktop.ts               # Desktop background handling
-│   └── index.ts
+└── background/
+    └── resume.ts                 # Auto-resume on network reconnect (5.4); platform hooks injected by apps
+
+# Platform background implementations live in each app (native BG tasks/foreground services/desktop
+# window focus are OS-specific, not core domain logic):
+apps/native/src/background/
+├── ios.ts                        # BackgroundTasks/BGTaskScheduler (5.1)
+├── android.ts                    # Foreground service + persistent notification (5.2)
+└── index.ts
+apps/web/src/background/          # 5.3 desktop minimize handling
+
+# Accessibility + localization are UI-layer concerns → shared UI package:
+packages/ui/src/
 ├── accessibility/
 │   ├── screenReader.ts          # ARIA labels, accessibility props
 │   ├── keyboard.ts              # Keyboard navigation support
 │   └── index.ts
-├── localization/
-│   ├── i18n.ts                  # Localization system
-│   ├── locales/                 # Translation files
-│   │   ├── en.json
-│   │   ├── es.json
-│   │   └── ...
-│   └── index.ts
-└── __tests__/
-    ├── background.test.ts
-    ├── accessibility.test.ts
-    └── database.test.ts
+└── localization/
+    ├── i18n.ts                  # Localization system
+    ├── locales/
+    │   ├── en.json
+    │   ├── es.json
+    │   └── ...
+    └── index.ts
+
+# Tests
+packages/core/src/__tests__/
+├── resume.test.ts
+└── background.test.ts
 ```
 
 ### Success Criteria
@@ -919,7 +949,7 @@ _Note: This assumes some cross-platform expertise and may extend the timeline._
 #### Discovery Tests
 
 - [ ] Devices discover each other via UDP multicast
-- [ ] mDNS discovery works across subnets
+- [ ] mDNS discovery works on the local subnet
 - [ ] Manual IP entry works
 - [ ] Heartbeat timeouts work correctly
 - [ ] Interface selection logic works
@@ -940,17 +970,20 @@ _Note: This assumes some cross-platform expertise and may extend the timeline._
 
 #### Security Tests
 
-- [ ] TLS+TOFU trust model works
+- [ ] QR+ECDH trust model works
 - [ ] First-time trust prompt appears
 - [ ] Subsequent connections auto-trust
-- [ ] Certificate regeneration handled
+- [ ] Identity key rotation / re-pairing handled
 - [ ] QR+ECDH handshake establishes secure channel
 - [ ] Transfers are encrypted
 - [ ] Long-term trust persists
-- [ ] Fallback to TLS+TOFU works
+- [ ] Manual pairing-entry fallback works
 - [ ] Quick Save rate limiting enforced
 - [ ] MITM protection works
 - [ ] Replay attack prevention works
+- [ ] Forward secrecy: decrypting a recorded past session with a leaked identity key fails
+- [ ] Session-key fingerprint matches on both devices; mismatch aborts the pairing
+- [ ] Nonce reuse is detected and refused (fail-closed) in adversarial tests
 
 #### Background Transfer Tests
 
@@ -1068,6 +1101,7 @@ pairsync/
 │   │   │   ├── routes/
 │   │   │   │   ├── index.tsx
 │   │   │   │   └── __root.tsx
+│   │   │   ├── background/           # desktop minimize handling (5.3)
 │   │   │   └── ...
 │   │   ├── src-tauri/
 │   │   │   ├── plugins/
@@ -1079,6 +1113,8 @@ pairsync/
 │       ├── app/
 │       │   ├── (drawer)/
 │       │   └── ...
+│       ├── src/
+│       │   └── platform/             # adapters: udp/mdns/tcp → core contracts
 │       └── package.json
 ├── packages/
 │   ├── config/
@@ -1093,26 +1129,22 @@ pairsync/
 │   │       │   └── messages/
 │   │       ├── discovery/
 │   │       ├── transfer/
+│   │       ├── file/
 │   │       ├── security/
-│   │       │   ├── tls/
+│   │       │   ├── identity/
 │   │       │   ├── ecdh/
 │   │       │   ├── qr/
 │   │       │   └── trust/
-│   │       ├── background/
-│   │       ├── accessibility/
-│   │       ├── localization/
 │   │       ├── database/
 │   │       ├── network/
-│   │       ├── platform/
-│   │       │   ├── mobile/
-│   │       │   └── desktop/
-│   │       ├── file/
 │   │       ├── types/
 │   │       ├── constants/
 │   │       ├── utils/
-│   │       └── __tests__/
+│   │       └── __tests__/       # platform adapters + background live in apps, not core
 │   ├── env/
 │   │   └── src/
+│   │       ├── web.ts           # VITE_SERVER_URL schema
+│   │       ├── native.ts        # EXPO_PUBLIC_SERVER_URL schema
 │   │       └── index.ts
 │   └── ui/
 │       └── src/
@@ -1120,7 +1152,9 @@ pairsync/
 │           │   └── security/
 │           ├── hooks/
 │           ├── lib/
-│           └── styles/
+│           ├── styles/
+│           ├── accessibility/   # UI-layer concern (Phase 5)
+│           └── localization/    # UI-layer concern (Phase 5)
 ├── package.json
 ├── turbo.json
 ├── PairSync Product Requirements.md
@@ -1142,4 +1176,3 @@ See **PRD Section 8.1** for glossary of terms.
 - [Tauri Documentation](https://v2.tauri.app/)
 - [Expo Documentation](https://docs.expo.dev/)
 - [XState Documentation](https://xstate.js.org/)
-- [Zustand Documentation](https://github.com/pmndrs/zustand)

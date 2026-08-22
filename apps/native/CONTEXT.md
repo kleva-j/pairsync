@@ -85,7 +85,7 @@ apps/native/
 | `expo-network` | Network info | ✅ |
 | `expo-secure-store` | Secure key-value storage | ✅ |
 
-**Planned (not yet installed, Phase 2+ of `IMPLEMENTATION_PLAN.md`):** `react-native-udp`, `react-native-mdns`, `expo-file-system`, `expo-sqlite`, `react-native-qrcode-svg`, `react-native-vision-camera`, `@pairsync/core`, `@pairsync/ui`.
+**Planned (not yet installed, Phase 2+ of `IMPLEMENTATION_PLAN.md`):** `react-native-udp`, `react-native-zeroconf`, `expo-file-system`, `expo-sqlite`, `react-native-qrcode-svg`, `react-native-vision-camera`, `@pairsync/core`, `@pairsync/ui`.
 
 ## Platform-Specific Notes
 
