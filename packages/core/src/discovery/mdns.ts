@@ -11,7 +11,8 @@ import type { Device, HeartbeatPayload, Platform } from "../types";
  *
  * The engine is **platform-agnostic**: all mDNS operations go through the
  * {@link MdnsService} contract. Each app provides an adapter
- * (react-native-mdns on mobile, a Rust/Tauri plugin on desktop) so the
+ * (react-native-zeroconf on mobile, a Rust/Tauri plugin backed by the
+ * `mdns-sd` crate on desktop) so the
  * same logic runs everywhere — same pattern as {@link MulticastDiscovery}
  * in `discovery/udp.ts`.
  *

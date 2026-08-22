@@ -135,6 +135,7 @@ When operating in this codebase:
 
 | When working on... | Start with... | Then read... |
 |-------------------|--------------|---------------|
+| End-to-end flow / wiring | CONTEXT-MAP.md | docs/end-to-end-flow.md, packages/core/CONTEXT.md |
 | Discovery protocol | CONTEXT-MAP.md | packages/core/CONTEXT.md |
 | File transfer logic | CONTEXT-MAP.md | packages/core/CONTEXT.md |
 | Web UI | CONTEXT-MAP.md | apps/web/CONTEXT.md, packages/ui/CONTEXT.md |

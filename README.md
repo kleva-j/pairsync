@@ -7,7 +7,7 @@
 PairSync provides:
 - **Zero Configuration**: No accounts, no cloud setups, works out-of-the-box on any local network
 - **High Performance**: Operates at ≥80% of physical local network bandwidth capacity
-- **End-to-End Security**: Local encryption (TLS 1.3) with Trust On First Use (TOFU) — planned (Phase 4)
+- **End-to-End Security**: QR-authenticated ECDH (X25519) + HKDF + AES-256-GCM session encryption — planned (Phase 4)
 - **True Cross-Platform**: Uniform experience across Mobile (iOS/Android) and Desktop (macOS/Windows/Linux)
 
 ## 🏗️ Architecture
@@ -63,8 +63,8 @@ pairsync/
 
 **Phase 4 - Trust & Security:**
 - QR code generation and scanning for device pairing
-- ECDH (X25519) key exchange
-- TLS 1.3 implementation with TOFU trust model
+- ECDH (X25519) key exchange with forward secrecy (ephemeral keys)
+- HKDF-derived session keys + AES-256-GCM encryption (AEAD envelope per message)
 - Security UI components (trust prompts, device management)
 
 **Phase 5 - Polish & Release:**
@@ -81,10 +81,10 @@ pairsync/
 | **Shared Core** | TypeScript (Strict) + XState | ✅ Implemented |
 | **Mobile UI** | React Native 0.86 + Expo SDK 57 + Expo Router | ✅ Skeleton exists |
 | **Desktop UI** | Tauri 2.x + React 19 + Vite + TailwindCSS v4 | ✅ Skeleton exists |
-| **Mobile Networking** | react-native-udp, react-native-mdns | ⏳ Planned |
-| **Desktop Networking** | Tauri Rust plugins (socket2/tokio, mdns) | ⏳ Planned |
+| **Mobile Networking** | react-native-udp, react-native-zeroconf | ⏳ Planned |
+| **Desktop Networking** | Tauri Rust plugins (socket2/tokio, mdns-sd) | ⏳ Planned |
 | **Crypto (Mobile)** | react-native-quick-crypto (X25519, SHA-256, HKDF) | ✅ Installed (spike-verified) |
-| **Crypto (Desktop)** | x25519-dalek, hkdf, aes-gcm, rustls | ⏳ Planned |
+| **Crypto (Desktop)** | x25519-dalek, hkdf, aes-gcm | ⏳ Planned |
 | **State Management** | XState | ✅ Core implemented |
 | **Storage** | SQLite (expo-sqlite / rusqlite) | ⏳ Planned |
 
@@ -147,7 +147,7 @@ The project uses a comprehensive testing strategy:
 - **Type Checking**: TypeScript strict mode with `tsc --noEmit`
 - **CI/CD**: GitHub Actions running on every PR (typecheck, JS unit tests, native jest tests, build, Tauri desktop build)
 
-Test coverage is currently focused on the core package with 203 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, mDNS discovery, heartbeat/network logic, and interface selection.
+Test coverage is currently focused on the core package with 228 passing unit tests covering types, constants, utilities, protocol schemas and builders, state machines, UDP multicast discovery, mDNS discovery, heartbeat/network logic, and interface selection.
 
 ## 📚 Documentation
 
@@ -157,6 +157,7 @@ Test coverage is currently focused on the core package with 203 passing unit tes
 - **[Agent Instructions](./AGENTS.md)** - AI agent development guidelines
 - **[Agent Domain Docs](./docs/agents/)** - Domain model, issue tracking, and triage conventions
 - **[State Machines](./docs/state-machines.md)** - XState machine documentation
+- **[End-to-End Flow](./docs/end-to-end-flow.md)** - Full discovery → connection → transfer walkthrough with wiring diagrams
 
 ## 🤝 Contributing
 
