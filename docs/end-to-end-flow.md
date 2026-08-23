@@ -244,11 +244,9 @@ discovered/scanning →(DEVICE_LOST)→ scanning/idle
 `react-native-quick-crypto` provides X25519/SHA-256/HKDF/AES-256-GCM but no
 native TLS adapter, and cert-TOFU would duplicate QR trust. The sole scheme is
 **application-level crypto over plaintext TCP**, layered on the Stage-4 socket.
-Four hardening requirements (`IMPLEMENTATION_PLAN.md:567-576`):
+Four hardening requirements (`IMPLEMENTATION_PLAN.md:581-590`):
 
-1. **Forward secrecy** (4.6) — a fresh **ephemeral** X25519 keypair per session;
-   session key = `HKDF(ECDH(eph_A, eph_B) ‖ ECDH(id_A, id_B))`. A leaked identity
-   key cannot decrypt past sessions.
+1. **Forward secrecy + KCI resistance (Noise KK)** (4.6) — a fresh **ephemeral** X25519 keypair per session; handshake follows **Noise KK pattern** (mutual static-key authentication via QR): `ee = ECDH(eph_A, eph_B)`, `es = ECDH(eph_A, id_B)`, `se = ECDH(id_A, eph_B)`, `ss = ECDH(id_A, id_B)`; session key = `HKDF(ee || es || se || ss)`. A leaked identity key cannot decrypt past sessions, and **KCI is prevented** by the Noise KK pattern's property that an attacker without the victim's static private key cannot complete the handshake even with a compromised peer's static key.
 2. **AEAD envelope** (4.7/4.13) — every message is `{ nonce, ciphertext }` with a
    HKDF-derived per-session nonce counter; re-key before the nonce space or the
    ~64 GiB GCM data limit. Nonce reuse is catastrophic and must fail closed.
