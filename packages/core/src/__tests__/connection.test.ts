@@ -9,10 +9,12 @@ import type { Device } from "../types";
 /** In-memory socket implementing the platform contract (N-251). */
 class FakeSocket implements TcpSocket {
   readonly attempts: Array<{ host: string; port: number }> = [];
+  readonly sent: Uint8Array[] = [];
   refuseHosts = new Set<string>();
   hangHosts = new Set<string>();
   connected = false;
   closeCount = 0;
+  private dataHandler?: (data: Uint8Array) => void;
   private readonly pendingHangs: Array<{
     reject: (error: Error) => void;
   }> = [];
@@ -29,6 +31,18 @@ class FakeSocket implements TcpSocket {
       throw new Error(`ECONNREFUSED ${host}`);
     }
     this.connected = true;
+  }
+
+  async send(data: Uint8Array): Promise<void> {
+    this.sent.push(data);
+  }
+
+  onData(handler: (data: Uint8Array) => void): void {
+    this.dataHandler = handler;
+  }
+
+  receive(data: Uint8Array): void {
+    this.dataHandler?.(data);
   }
 
   async close(): Promise<void> {
@@ -81,6 +95,23 @@ describe("ConnectionInitiator", () => {
       port: 53_351,
     });
     expect(conn.socket).toBe(socket);
+  });
+
+  it("returns the send and receive capable platform socket", async () => {
+    const socket = new FakeSocket();
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
+    const conn = await initiator.connect(peerDevice());
+    const received: Uint8Array[] = [];
+
+    conn.socket.onData((data) => received.push(data));
+    await conn.socket.send(new Uint8Array([1, 2, 3]));
+    socket.receive(new Uint8Array([4, 5, 6]));
+
+    expect(socket.sent).toEqual([new Uint8Array([1, 2, 3])]);
+    expect(received).toEqual([new Uint8Array([4, 5, 6])]);
   });
 
   it("defaults the TCP port to 53350 when the advertised port is unusable", async () => {

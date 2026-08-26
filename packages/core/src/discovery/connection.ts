@@ -50,6 +50,10 @@ export interface TcpSocket {
    * requires of its adapters) or the connect may fail on multi-interface hosts.
    */
   connect(host: string, port: number): Promise<void>;
+  /** Sends bytes on an established connection. */
+  send(data: Uint8Array): Promise<void>;
+  /** Registers the inbound byte-stream handler (called by the adapter). */
+  onData(handler: (data: Uint8Array) => void): void;
   /**
    * Closes the socket (a no-op when nothing is connected). Must also abort
    * any connect still in flight, so the engine's timeout can move on to the

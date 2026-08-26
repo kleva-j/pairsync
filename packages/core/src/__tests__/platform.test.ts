@@ -21,6 +21,13 @@ describe("platform detection", () => {
     expect(getPlatform()).toBe("mobile");
   });
 
+  it("detects React Native via global navigator.product", () => {
+    vi.stubGlobal("navigator", { product: "ReactNative" });
+    expect(isMobile()).toBe(true);
+    expect(isWeb()).toBe(false);
+    expect(getPlatform()).toBe("mobile");
+  });
+
   it("detects a browser window as web", () => {
     vi.stubGlobal("window", { navigator: { product: "Gecko" } });
     expect(isWeb()).toBe(true);
