@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-join-group"
+description = "Enables the join_group command without any pre-configured scope."
+commands.allow = ["join_group"]
+
+[[permission]]
+identifier = "deny-join-group"
+description = "Denies the join_group command without any pre-configured scope."
+commands.deny = ["join_group"]

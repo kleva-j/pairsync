@@ -15,10 +15,13 @@
     "desktop:build": "tauri build"
   },
   "dependencies": {
+    "@pairsync/core": "workspace:*",
     "@pairsync/env": "workspace:*",
     "@pairsync/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.18",
+    "@tauri-apps/api": "^2.11.1",
+    "base64-js": "catalog:",
     "dotenv": "catalog:",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
