@@ -10,7 +10,22 @@
 
 The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 + 2.5 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic, interface selection, the UDP multicast discovery engine, the mDNS discovery engine, device list management, TCP connection initiation, and the platform network abstraction (`PlatformNetworkAdapter` selection/factory with unsupported-runtime fallbacks) are implemented and unit-tested. **Phase 1 (Core Infrastructure) is complete; Phase 2.1–2.5 (UDP multicast, mDNS, device list, connection initiation, platform abstraction layer) are done.** Still **Planned**: manual IP fallback, transfer engine, security (see the table below). Platform adapters live in the apps: `apps/native/src/platform` (react-native-udp/zeroconf/tcp-socket) and `apps/web/src/platform` + `apps/web/src-tauri/plugins/*` (Tauri Rust plugins), both consuming `@pairsync/core` via `workspace:*`.
+> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 + 2.5 implemented.**
+>
+> Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested),
+> the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic,
+> interface selection, the UDP multicast discovery engine, the mDNS discovery engine, device list
+> management, TCP connection initiation, and the platform network abstraction
+> (`PlatformNetworkAdapter` selection/factory with unsupported-runtime fallbacks) are implemented
+> and unit-tested.
+>
+> **Phase 1 (Core Infrastructure) is complete; Phase 2.1–2.5 (UDP multicast, mDNS, device list,
+> connection initiation, platform abstraction layer) are done.**
+>
+> Still **Planned**: manual IP fallback, transfer engine, security (see the table below).
+> Platform adapters live in the apps: `apps/native/src/platform` (react-native-udp/zeroconf/tcp-socket)
+> and `apps/web/src/platform` + `apps/web/src-tauri/plugins/*` (Tauri Rust plugins), both consuming
+> `@pairsync/core` via `workspace:*`.
 
 ## Current Structure
 
