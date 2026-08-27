@@ -57,3 +57,6 @@ coverage
 tmp
 temp
 .freebuff
+
+# pnpm package store (never commit)
+.pnpm-store

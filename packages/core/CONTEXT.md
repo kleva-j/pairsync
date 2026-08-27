@@ -10,7 +10,7 @@
 
 The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic, interface selection, the UDP multicast discovery engine, the mDNS discovery engine, device list management, and TCP connection initiation are implemented and unit-tested. **Phase 1 (Core Infrastructure) is complete; Phase 2.1–2.4 (UDP multicast, mDNS, device list, connection initiation) are done.** Still **Planned**: manual IP fallback, transfer engine, security (see the table below). **No app code imports `@pairsync/core` yet** (no `workspace:*` dependency declares it); that happens in Phase 2+.
+> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 + 2.5 implemented.** Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested), the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic, interface selection, the UDP multicast discovery engine, the mDNS discovery engine, device list management, TCP connection initiation, and the platform network abstraction (`PlatformNetworkAdapter` selection/factory with unsupported-runtime fallbacks) are implemented and unit-tested. **Phase 1 (Core Infrastructure) is complete; Phase 2.1–2.5 (UDP multicast, mDNS, device list, connection initiation, platform abstraction layer) are done.** Still **Planned**: manual IP fallback, transfer engine, security (see the table below). Platform adapters live in the apps: `apps/native/src/platform` (react-native-udp/zeroconf/tcp-socket) and `apps/web/src/platform` + `apps/web/src-tauri/plugins/*` (Tauri Rust plugins), both consuming `@pairsync/core` via `workspace:*`.
 
 ## Current Structure
 
@@ -44,6 +44,8 @@ packages/core/
 │   │   ├── deviceManager.ts # DeviceManager: add/update/remove with timeout expiry (2.3)
 │   │   ├── connection.ts  # ConnectionInitiator: TCP establishment w/ timeout + backoff (2.4)
 │   │   └── index.ts
+│   ├── platform/
+│   │   └── index.ts       # PlatformNetworkAdapter contract + runtime selection/factory (2.5)
 │   └── __tests__/         # Vitest: constants, protocol constants, machines, platform, heartbeat, discovery
 ├── package.json           # @pairsync/core — exports "./src/index.ts", test script
 └── tsconfig.json          # extends @pairsync/config/tsconfig.base.json
@@ -66,7 +68,7 @@ Import as `import { Device, CHUNK_SIZE, isMobile } from "@pairsync/core";` — t
 | `base64-js` | ✅ Installed (used) | RFC 4648 base64 encoding of wire chunk payloads (`src/protocol/schemas.ts`) |
 | `ipaddr.js` | ✅ Installed (used) | IPv4/IPv6 parsing + locality/loopback classification (`src/network/interfaces.ts`) |
 | `fast-deep-equal` | ✅ Installed (used) | Key-order-independent interface comparison (`src/discovery/deviceManager.ts`) |
-| `vitest` | ✅ devDep | Unit tests (228 passing) |
+| `vitest` | ✅ devDep | Unit tests (235 passing) |
 
 Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
 
@@ -86,6 +88,7 @@ Platform-specific crypto/networking libraries live in the **apps**, not core —
 | mDNS discovery engine (MdnsDiscovery + MdnsService contract) | Phase 2 (2.2) | ✅ Implemented + tested |
 | Device list management (DeviceManager: add/update/remove, timeout expiry, deduplication) | Phase 2 (2.3) | ✅ Implemented + tested |
 | Connection initiation (ConnectionInitiator: TCP connect, per-attempt timeout, backoff, typed errors) | Phase 2 (2.4) | ✅ Implemented + tested |
+| Platform abstraction layer (PlatformNetworkAdapter contract, runtime-keyed selection, unsupported-runtime stubs) — mobile adapter in `apps/native`, desktop Tauri plugins + adapter in `apps/web` | Phase 2 (2.5) | ✅ Implemented + tested (selection/fallbacks; adapters tested in their apps) |
 | Manual IP fallback | Phase 2 | 🚧 Planned |
 | SQLite database setup + schema | Phase 2 | 🚧 Planned |
 | Transfer engine (prepare, chunked upload/download, resume, verify, queue) | Phase 3 | 🚧 Planned |
