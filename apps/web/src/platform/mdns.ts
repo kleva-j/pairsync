@@ -26,15 +26,18 @@ export class TauriMdnsService implements MdnsService {
     listen<FoundPayload>("pairsync-mdns:service-found", (event) => {
       this.foundHandler?.(event.payload);
     }).then((unlisten) => {
-      // A close() racing the listen registration must not leak the listener.
       if (this.closed) unlisten();
       else this.unlisteners.push(unlisten);
+    }).catch(() => {
+      // Silently ignore listen failures
     });
     listen<{ name: string }>("pairsync-mdns:service-lost", (event) => {
       this.lostHandler?.(event.payload.name);
     }).then((unlisten) => {
       if (this.closed) unlisten();
       else this.unlisteners.push(unlisten);
+    }).catch(() => {
+      // Silently ignore listen failures
     });
   }
 

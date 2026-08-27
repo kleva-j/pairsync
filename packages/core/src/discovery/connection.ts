@@ -183,7 +183,6 @@ export class ConnectionInitiator {
     }
 
     const port = resolvePort(device.port);
-    const socket = this.createSocket();
     let lastCode: ConnectionErrorCode = "connect_failed";
     let lastError: unknown;
 
@@ -192,6 +191,9 @@ export class ConnectionInitiator {
       if (index > 0) {
         await this.sleep(connectionBackoffDelay(index - 1, this.backoffBaseMs));
       }
+
+      // Create fresh socket for each attempt
+      const socket = this.createSocket();
 
       try {
         await this.connectWithTimeout(

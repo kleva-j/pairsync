@@ -30,6 +30,8 @@ export class TauriTcpSocket implements TcpSocket {
         return;
       }
       this.unlisten = unlisten;
+    }).catch(() => {
+      // Silently ignore listen failures - adapter will be unusable but won't crash
     });
   }
 
@@ -43,6 +45,9 @@ export class TauriTcpSocket implements TcpSocket {
   }
 
   async send(data: Uint8Array): Promise<void> {
+    if (this.closed) {
+      throw new Error("TCP socket is closed");
+    }
     if (!this.connected) {
       throw new Error("TCP socket is not connected");
     }

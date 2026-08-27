@@ -39,15 +39,18 @@ function closeSocket(socket: ReturnType<typeof dgram.createSocket>): Promise<voi
 export class ReactNativeMulticastSocket implements MulticastSocket {
   private sockets: { udp4?: ReturnType<typeof dgram.createSocket>; udp6?: ReturnType<typeof dgram.createSocket> } = {};
   private messageHandler?: (data: Uint8Array, remote: RemoteInfo) => void;
+  private messageHandlers: Map<ReturnType<typeof dgram.createSocket>, (data: Uint8Array, remote: RemoteInfo) => void> = new Map();
 
   private ensureSocket(family: UdpFamily): ReturnType<typeof dgram.createSocket> {
     if (this.sockets[family]) {
       return this.sockets[family]!;
     }
     const socket = createSocket(family);
-    socket.on("message", (data, remote) => {
-      this.messageHandler?.(new Uint8Array(data), remote);
-    });
+    const handler = (data: Uint8Array, remote: RemoteInfo) => {
+      this.messageHandler?.(data, remote);
+    };
+    socket.on("message", handler);
+    this.messageHandlers.set(socket, handler);
     this.sockets[family] = socket;
     return socket;
   }
@@ -88,17 +91,38 @@ export class ReactNativeMulticastSocket implements MulticastSocket {
   }
 
   async joinGroup(group: string, iface?: string): Promise<void> {
-    this.ensureSocket(familyForAddress(group)).addMembership(group, iface);
+    try {
+      this.ensureSocket(familyForAddress(group)).addMembership(group, iface);
+    } catch (error) {
+      throw new Error(`Failed to join multicast group ${group}: ${error}`);
+    }
   }
 
   async leaveGroup(group: string, iface?: string): Promise<void> {
-    this.ensureSocket(familyForAddress(group)).dropMembership(group, iface);
+    try {
+      this.ensureSocket(familyForAddress(group)).dropMembership(group, iface);
+    } catch (error) {
+      throw new Error(`Failed to leave multicast group ${group}: ${error}`);
+    }
   }
 
   async close(): Promise<void> {
     const udp4 = this.sockets.udp4;
     const udp6 = this.sockets.udp6;
     this.sockets = {};
+
+    // Remove event handlers before closing
+    if (udp4) {
+      const handler = this.messageHandlers.get(udp4);
+      if (handler) udp4.off("message", handler);
+      this.messageHandlers.delete(udp4);
+    }
+    if (udp6) {
+      const handler = this.messageHandlers.get(udp6);
+      if (handler) udp6.off("message", handler);
+      this.messageHandlers.delete(udp6);
+    }
+
     await Promise.all([
       udp4 ? closeSocket(udp4) : Promise.resolve(),
       udp6 ? closeSocket(udp6) : Promise.resolve(),

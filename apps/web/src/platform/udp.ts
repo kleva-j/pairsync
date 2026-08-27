@@ -19,8 +19,12 @@ export class TauriMulticastSocket implements MulticastSocket {
   ) => void;
   private unlisten?: UnlistenFn;
   private bound = false;
+  private closed = false;
 
   async bind(port: number): Promise<void> {
+    if (this.closed) {
+      throw new Error("Socket is closed");
+    }
     await invoke("plugin:pairsync-udp|bind", { socketId: this.socketId, port });
     const unlisten = await listen<{
       socketId: number;
@@ -67,6 +71,7 @@ export class TauriMulticastSocket implements MulticastSocket {
   }
 
   async close(): Promise<void> {
+    this.closed = true;
     try {
       await invoke("plugin:pairsync-udp|close", { socketId: this.socketId });
     } finally {
