@@ -21,6 +21,7 @@ class FakeSocket implements TcpSocket {
 
   async connect(host: string, port: number): Promise<void> {
     this.attempts.push({ host, port });
+    this.sent = [];
     if (this.hangHosts.has(host)) {
       // Mimics the contract: close() aborts the in-flight connect.
       await new Promise<void>((_resolve, reject) => {

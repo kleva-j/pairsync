@@ -56,9 +56,14 @@ describe("createPlatformNetwork", () => {
 
   it("selects the injected desktop adapter lazily", () => {
     const desktop = adapter("desktop");
-    expect(createPlatformNetwork({ desktop: () => desktop }, "desktop")).toBe(
-      desktop,
-    );
+    let called = false;
+    const factory = () => {
+      called = true;
+      return desktop;
+    };
+
+    expect(createPlatformNetwork({ desktop: factory }, "desktop")).toBe(desktop);
+    expect(called).toBe(true);
   });
 
   it("returns unsupported networking for browser web", async () => {

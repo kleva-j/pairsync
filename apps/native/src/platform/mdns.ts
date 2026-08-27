@@ -8,6 +8,13 @@ type ZeroconfResolvedService = {
   txt?: Record<string, string | number | boolean>;
 };
 
+export class MdnsServiceTypeError extends Error {
+  constructor(serviceType: string, reason: string) {
+    super(`Invalid mDNS service type '${serviceType}': ${reason}`);
+    this.name = "MdnsServiceTypeError";
+  }
+}
+
 function splitServiceType(serviceType: string): {
   type: string;
   protocol: "tcp" | "udp";
@@ -15,8 +22,14 @@ function splitServiceType(serviceType: string): {
 } {
   const normalized = serviceType.replace(/^_/, "").replace(/\.$/, "");
   const [type, protocol, ...domainParts] = normalized.split(".");
-  if (!type || (protocol !== "_tcp" && protocol !== "_udp")) {
-    throw new Error(`Unsupported mDNS service type: ${serviceType}`);
+  if (!type) {
+    throw new MdnsServiceTypeError(serviceType, "missing service type");
+  }
+  if (protocol !== "_tcp" && protocol !== "_udp") {
+    throw new MdnsServiceTypeError(
+      serviceType,
+      `invalid protocol '${protocol}', expected _tcp or _udp`,
+    );
   }
   return {
     type,
