@@ -15,7 +15,7 @@ use std::{
     time::Duration,
 };
 
-use base64::{engine::general_purpose::STANDARD, Engine};
+use pairsync_common::base64::{decode_b64, encode_b64};
 use serde::Serialize;
 use tauri::{
     plugin::{Builder, TauriPlugin},
@@ -29,16 +29,6 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Long enough to amortize wakeups, short enough that `close()` reclaims
 /// reader threads promptly.
 const READ_POLL_INTERVAL: Duration = Duration::from_millis(250);
-
-fn encode_b64(bytes: &[u8]) -> String {
-    STANDARD.encode(bytes)
-}
-
-fn decode_b64(data: &str) -> Result<Vec<u8>, String> {
-    STANDARD
-        .decode(data)
-        .map_err(|err| format!("invalid base64 payload: {err}"))
-}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
