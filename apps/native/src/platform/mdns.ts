@@ -66,7 +66,9 @@ export class ReactNativeMdnsService implements MdnsService {
       });
     });
     this.zeroconf.on("remove", (name: string) => {
-      this.lostHandler?.(name);
+      if (name !== this.serviceName) {
+        this.lostHandler?.(name);
+      }
     });
   }
 

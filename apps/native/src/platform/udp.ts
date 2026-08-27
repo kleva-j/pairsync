@@ -41,14 +41,15 @@ export class ReactNativeMulticastSocket implements MulticastSocket {
   private messageHandler?: (data: Uint8Array, remote: RemoteInfo) => void;
 
   private ensureSocket(family: UdpFamily): ReturnType<typeof dgram.createSocket> {
-    if (!this.sockets[family]) {
-      const socket = createSocket(family);
-      socket.on("message", (data, remote) => {
-        this.messageHandler?.(new Uint8Array(data), remote);
-      });
-      this.sockets[family] = socket;
+    if (this.sockets[family]) {
+      return this.sockets[family]!;
     }
-    return this.sockets[family]!;
+    const socket = createSocket(family);
+    socket.on("message", (data, remote) => {
+      this.messageHandler?.(new Uint8Array(data), remote);
+    });
+    this.sockets[family] = socket;
+    return socket;
   }
 
   async bind(port: number, address?: string): Promise<void> {
@@ -57,7 +58,11 @@ export class ReactNativeMulticastSocket implements MulticastSocket {
       await bindSocket(this.ensureSocket(family), port, address);
       const otherFamily = family === "udp4" ? "udp6" : "udp4";
       if (this.sockets[otherFamily]) {
-        await closeSocket(this.sockets[otherFamily]!);
+        try {
+          await closeSocket(this.sockets[otherFamily]!);
+        } catch {
+          // swallow close errors to prevent bind failure
+        }
         this.sockets[otherFamily] = undefined;
       }
       return;

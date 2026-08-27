@@ -13,11 +13,11 @@ export class ReactNativeTcpSocket implements TcpSocket {
         { host, port, reuseAddress: true },
         () => resolve(),
       );
+      this.socket = socket;
       socket.once("error", reject);
       socket.on("data", (data) => {
         this.dataHandler?.(new Uint8Array(data));
       });
-      this.socket = socket;
     });
   }
 

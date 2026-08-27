@@ -79,7 +79,7 @@ export function createUnsupportedMulticastSocket(
     send: () => unsupported(runtime, "udp"),
     joinGroup: () => unsupported(runtime, "udp"),
     leaveGroup: () => unsupported(runtime, "udp"),
-    close: () => unsupported(runtime, "udp"),
+    close: () => Promise.resolve(),
   };
 }
 
@@ -93,8 +93,8 @@ export function createUnsupportedMdnsService(runtime: RuntimePlatform): MdnsServ
     onServiceLost: () => {
       // Unsupported adapters never emit service events.
     },
-    unpublish: () => unsupported(runtime, "mdns"),
-    close: () => unsupported(runtime, "mdns"),
+    unpublish: () => Promise.resolve(),
+    close: () => Promise.resolve(),
   };
 }
 
@@ -105,6 +105,6 @@ export function createUnsupportedTcpSocket(runtime: RuntimePlatform): TcpSocket 
     onData: () => {
       // Unsupported adapters never emit stream data.
     },
-    close: () => unsupported(runtime, "tcp"),
+    close: () => Promise.resolve(),
   };
 }
