@@ -151,6 +151,7 @@ export class MulticastDiscovery {
       try {
         await this.socket.bind(DISCOVERY_PORT);
       } catch (error) {
+        this.started = false;
         this.reportError(error);
         await this.closeBestEffort();
         return;
