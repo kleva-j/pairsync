@@ -15,27 +15,19 @@ export class TauriTcpSocket implements TcpSocket {
 
   private readonly socketId = TauriTcpSocket.nextId++;
   private dataHandler?: (data: Uint8Array) => void;
-  private unlisten?: UnlistenFn;
+  private dataUnlisten?: Promise<UnlistenFn>;
   private connected = false;
   private closed = false;
 
   constructor() {
-    listen<{ socketId: number; data: string }>("pairsync-tcp:data", (event) => {
+    this.dataUnlisten = listen<{ socketId: number; data: string }>("pairsync-tcp:data", (event) => {
       if (event.payload.socketId !== this.socketId) return;
       this.dataHandler?.(toByteArray(event.payload.data));
-    }).then((unlisten) => {
-      // A close() racing the listen registration must not leak the listener.
-      if (this.closed) {
-        unlisten();
-        return;
-      }
-      this.unlisten = unlisten;
-    }).catch(() => {
-      // Silently ignore listen failures - adapter will be unusable but won't crash
     });
   }
 
   async connect(host: string, port: number): Promise<void> {
+    await this.dataUnlisten;
     await invoke("plugin:pairsync-tcp|connect", {
       socketId: this.socketId,
       host,
@@ -62,16 +54,15 @@ export class TauriTcpSocket implements TcpSocket {
   }
 
   async close(): Promise<void> {
-    const wasConnected = this.connected;
     this.connected = false;
     this.closed = true;
     try {
-      if (wasConnected) {
-        await invoke("plugin:pairsync-tcp|close", { socketId: this.socketId });
-      }
+      await invoke("plugin:pairsync-tcp|close", { socketId: this.socketId });
     } finally {
-      this.unlisten?.();
-      this.unlisten = undefined;
+      if (this.dataUnlisten) {
+        const unlisten = await this.dataUnlisten;
+        unlisten();
+      }
     }
   }
 }

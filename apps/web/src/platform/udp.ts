@@ -21,11 +21,11 @@ export class TauriMulticastSocket implements MulticastSocket {
   private bound = false;
   private closed = false;
 
-  async bind(port: number): Promise<void> {
+  async bind(port: number, address?: string): Promise<void> {
     if (this.closed) {
       throw new Error("Socket is closed");
     }
-    await invoke("plugin:pairsync-udp|bind", { socketId: this.socketId, port });
+    await invoke("plugin:pairsync-udp|bind", { socketId: this.socketId, port, address });
     const unlisten = await listen<{
       socketId: number;
       data: string;

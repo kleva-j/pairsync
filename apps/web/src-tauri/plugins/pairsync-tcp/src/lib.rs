@@ -38,7 +38,7 @@ struct DataEvent {
 }
 
 struct ConnectionEntry {
-    stream: Arc<Mutex<TcpStream>>,
+    stream: Option<Arc<Mutex<TcpStream>>>,
     cancel: Arc<AtomicBool>,
 }
 
@@ -105,11 +105,18 @@ fn connect<R: Runtime>(
     host: String,
     port: u16,
 ) -> Result<(), String> {
+    let cancel = Arc::new(AtomicBool::new(false));
+    state.0.lock().unwrap().insert(socket_id, ConnectionEntry {
+        stream: None,
+        cancel: cancel.clone(),
+    });
+
     let addrs: Vec<SocketAddr> = (host.as_str(), port)
         .to_socket_addrs()
         .map_err(|err| format!("failed to resolve {host}:{port}: {err}"))?
         .collect();
     if addrs.is_empty() {
+        state.0.lock().unwrap().remove(&socket_id);
         return Err(format!("no addresses resolved for {host}:{port}"));
     }
 
@@ -125,24 +132,23 @@ fn connect<R: Runtime>(
         }
     });
     let Some(stream) = stream else {
+        state.0.lock().unwrap().remove(&socket_id);
         return Err(last_err);
     };
     let _ = stream.set_nodelay(true);
 
-    // A re-connect of the same id replaces (and cancels) the previous one.
-    if let Some(previous) = state.0.lock().unwrap().remove(&socket_id) {
-        previous.cancel.store(true, Ordering::Relaxed);
-        let _ = previous.stream.lock().unwrap().shutdown(std::net::Shutdown::Both);
+    if cancel.load(Ordering::Relaxed) {
+        state.0.lock().unwrap().remove(&socket_id);
+        return Err("connection cancelled".into());
     }
 
-    let cancel = Arc::new(AtomicBool::new(false));
     let reader_stream = stream.try_clone().map_err(|err| err.to_string())?;
     spawn_reader(&app, socket_id, reader_stream, cancel.clone());
 
     state.0.lock().unwrap().insert(
         socket_id,
         ConnectionEntry {
-            stream: Arc::new(Mutex::new(stream)),
+            stream: Some(Arc::new(Mutex::new(stream))),
             cancel,
         },
     );
@@ -154,10 +160,10 @@ fn send(state: State<'_, ConnectionMap>, socket_id: u32, data: String) -> Result
     let bytes = decode_b64(&data)?;
     let stream = {
         let map = state.0.lock().unwrap();
-        map.get(&socket_id)
-            .ok_or_else(|| format!("unknown TCP socket #{socket_id}"))?
-            .stream
-            .clone()
+        let entry = map.get(&socket_id)
+            .ok_or_else(|| format!("unknown TCP socket #{socket_id}"))?;
+        entry.stream.clone()
+            .ok_or_else(|| format!("TCP socket #{socket_id} is not connected"))?
     };
     let mut stream = stream.lock().unwrap();
     stream
@@ -170,7 +176,9 @@ fn send(state: State<'_, ConnectionMap>, socket_id: u32, data: String) -> Result
 fn close(state: State<'_, ConnectionMap>, socket_id: u32) -> Result<(), String> {
     if let Some(entry) = state.0.lock().unwrap().remove(&socket_id) {
         entry.cancel.store(true, Ordering::Relaxed);
-        let _ = entry.stream.lock().unwrap().shutdown(std::net::Shutdown::Both);
+        if let Some(stream) = entry.stream {
+            let _ = stream.lock().unwrap().shutdown(std::net::Shutdown::Both);
+        }
     }
     Ok(())
 }

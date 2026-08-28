@@ -19,26 +19,23 @@ export class TauriMdnsService implements MdnsService {
   private foundHandler?: (service: FoundPayload) => void;
   private lostHandler?: (name: string) => void;
   private advertised?: { serviceType: string; name: string };
-  private unlisteners: UnlistenFn[] = [];
+  private foundUnlisten?: Promise<UnlistenFn>;
+  private lostUnlisten?: Promise<UnlistenFn>;
   private closed = false;
 
   constructor() {
-    listen<FoundPayload>("pairsync-mdns:service-found", (event) => {
+    this.foundUnlisten = listen<FoundPayload>("pairsync-mdns:service-found", (event) => {
       this.foundHandler?.(event.payload);
-    }).then((unlisten) => {
-      if (this.closed) unlisten();
-      else this.unlisteners.push(unlisten);
-    }).catch(() => {
-      // Silently ignore listen failures
     });
-    listen<{ name: string }>("pairsync-mdns:service-lost", (event) => {
+    this.lostUnlisten = listen<{ name: string }>("pairsync-mdns:service-lost", (event) => {
       this.lostHandler?.(event.payload.name);
-    }).then((unlisten) => {
-      if (this.closed) unlisten();
-      else this.unlisteners.push(unlisten);
-    }).catch(() => {
-      // Silently ignore listen failures
     });
+  }
+
+  async browse(serviceType: string): Promise<void> {
+    await this.foundUnlisten;
+    await this.lostUnlisten;
+    await invoke("plugin:pairsync-mdns|browse", { serviceType });
   }
 
   async advertise(
@@ -54,10 +51,6 @@ export class TauriMdnsService implements MdnsService {
       txt,
     });
     this.advertised = { serviceType, name };
-  }
-
-  async browse(serviceType: string): Promise<void> {
-    await invoke("plugin:pairsync-mdns|browse", { serviceType });
   }
 
   onServiceFound(handler: (service: FoundPayload) => void): void {
@@ -78,9 +71,17 @@ export class TauriMdnsService implements MdnsService {
   async close(): Promise<void> {
     this.closed = true;
     try {
+      await this.unpublish();
       await invoke("plugin:pairsync-mdns|stop_browse");
     } finally {
-      for (const unlisten of this.unlisteners.splice(0)) unlisten();
+      if (this.foundUnlisten) {
+        const unlisten = await this.foundUnlisten;
+        unlisten();
+      }
+      if (this.lostUnlisten) {
+        const unlisten = await this.lostUnlisten;
+        unlisten();
+      }
     }
   }
 }

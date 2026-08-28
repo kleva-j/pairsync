@@ -158,14 +158,26 @@ fn bind<R: Runtime>(
     state: State<'_, SocketMap>,
     socket_id: u32,
     port: u16,
+    address: Option<String>,
 ) -> Result<(), String> {
-    let v4 = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port));
-    let v6 = UdpSocket::bind((Ipv6Addr::UNSPECIFIED, port));
-    let (v4, v6) = match (v4, v6) {
-        (Ok(v4), Ok(v6)) => (Some(v4), Some(v6)),
-        (Ok(v4), Err(_)) => (Some(v4), None),
-        (Err(_), Ok(v6)) => (None, Some(v6)),
-        (Err(e1), Err(e2)) => return Err(format!("failed to bind UDP discovery port {port}: v4={e1}, v6={e2}")),
+    let (v4, v6) = match &address {
+        Some(addr) => {
+            let addr = addr.parse::<IpAddr>().map_err(|err| format!("invalid bind address {addr}: {err}"))?;
+            match addr {
+                IpAddr::V4(v4) => (Some(UdpSocket::bind((v4, port))?, None),
+                IpAddr::V6(v6) => (None, Some(UdpSocket::bind((v6, port))?)),
+            }
+        }
+        None => {
+            let v4 = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port));
+            let v6 = UdpSocket::bind((Ipv6Addr::UNSPECIFIED, port));
+            match (v4, v6) {
+                (Ok(v4), Ok(v6)) => (Some(v4), Some(v6)),
+                (Ok(v4), Err(_)) => (Some(v4), None),
+                (Err(_), Ok(v6)) => (None, Some(v6)),
+                (Err(e1), Err(e2)) => return Err(format!("failed to bind UDP discovery port {port}: v4={e1}, v6={e2}")),
+            }
+        }
     };
     let entry = SocketEntry {
         v4: v4.map(configure),
