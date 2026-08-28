@@ -71,6 +71,7 @@ export class TauriMulticastSocket implements MulticastSocket {
   }
 
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     try {
       await invoke("plugin:pairsync-udp|close", { socketId: this.socketId });
