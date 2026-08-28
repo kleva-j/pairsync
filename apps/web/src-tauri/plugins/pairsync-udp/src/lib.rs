@@ -17,6 +17,7 @@ use std::{
 
 use pairsync_common::base64::{decode_b64, encode_b64};
 use serde::Serialize;
+use socket2::{Domain, Protocol, Socket, Type};
 use tauri::{
     plugin::{Builder, TauriPlugin},
     AppHandle, Emitter, Manager, Runtime, State,
@@ -68,10 +69,26 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 fn configure(sock: UdpSocket) -> Arc<UdpSocket> {
     let _ = sock.set_read_timeout(Some(RECV_POLL_INTERVAL));
-    // Same-host peers must hear each other's announcements; PairSync filters
-    // its own echo by device id.
     let _ = sock.set_multicast_loop_v4(true);
     Arc::new(sock)
+}
+
+fn bind_ipv4(addr: Ipv4Addr, port: u16) -> Result<UdpSocket, String> {
+    let sock = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))
+        .map_err(|err| format!("failed to create IPv4 socket: {err}"))?;
+    sock.bind(&socket2::SockAddr::from(std::net::SocketAddr::V4(std::net::SocketAddrV4::new(addr, port))))
+        .map_err(|err| format!("failed to bind IPv4 socket: {err}"))?;
+    Ok(sock.into())
+}
+
+fn bind_ipv6(addr: Ipv6Addr, port: u16) -> Result<UdpSocket, String> {
+    let sock = Socket::new(Domain::IPV6, Type::DGRAM, Some(Protocol::UDP))
+        .map_err(|err| format!("failed to create IPv6 socket: {err}"))?;
+    sock.set_only_v6(true)
+        .map_err(|err| format!("failed to set IPV6_V6ONLY: {err}"))?;
+    sock.bind(&socket2::SockAddr::from(std::net::SocketAddr::V6(std::net::SocketAddrV6::new(addr, port, 0, 0))))
+        .map_err(|err| format!("failed to bind IPv6 socket: {err}"))?;
+    Ok(sock.into())
 }
 
 fn spawn_reader<R: Runtime>(
@@ -164,18 +181,18 @@ fn bind<R: Runtime>(
         Some(addr) => {
             let addr = addr.parse::<IpAddr>().map_err(|err| format!("invalid bind address {addr}: {err}"))?;
             match addr {
-                IpAddr::V4(v4) => (Some(UdpSocket::bind((v4, port))?, None),
-                IpAddr::V6(v6) => (None, Some(UdpSocket::bind((v6, port))?)),
+                IpAddr::V4(v4) => (Some(bind_ipv4(v4, port)?), None),
+                IpAddr::V6(v6) => (None, Some(bind_ipv6(v6, port)?)),
             }
         }
         None => {
-            let v4 = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, port));
-            let v6 = UdpSocket::bind((Ipv6Addr::UNSPECIFIED, port));
-            match (v4, v6) {
-                (Ok(v4), Ok(v6)) => (Some(v4), Some(v6)),
-                (Ok(v4), Err(_)) => (Some(v4), None),
-                (Err(_), Ok(v6)) => (None, Some(v6)),
-                (Err(e1), Err(e2)) => return Err(format!("failed to bind UDP discovery port {port}: v4={e1}, v6={e2}")),
+            let v6 = bind_ipv6(Ipv6Addr::UNSPECIFIED, port);
+            let v4 = bind_ipv4(Ipv4Addr::UNSPECIFIED, port);
+            match (v6, v4) {
+                (Ok(v6), Ok(v4)) => (Some(v4), Some(v6)),
+                (Ok(v6), Err(_)) => (None, Some(v6)),
+                (Err(_), Ok(v4)) => (Some(v4), None),
+                (Err(e6), Err(e4)) => return Err(format!("failed to bind UDP discovery port {port}: v4={e4}, v6={e6}")),
             }
         }
     };

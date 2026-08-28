@@ -36,8 +36,8 @@ struct ServiceLostEvent {
 
 struct Inner {
     daemon: Option<ServiceDaemon>,
-    /// Advertised full names keyed by instance name (for `unpublish`).
-    advertised: HashMap<String, String>,
+    /// Advertised full names keyed by `(service_type, instance name)`.
+    advertised: HashMap<(String, String), String>,
     browse_types: HashSet<String>,
 }
 
@@ -129,7 +129,7 @@ fn advertise(
         .map_err(|err| format!("failed to register mDNS service: {err}"))?;
 
     let fullname = format!("{name}.{service_type}");
-    inner.advertised.insert(name, fullname);
+    inner.advertised.insert((service_type.clone(), name), fullname);
     Ok(())
 }
 
@@ -140,8 +140,8 @@ fn unpublish(
     name: String,
 ) -> Result<(), String> {
     let mut inner = state.0.lock().unwrap();
-    let Some(fullname) = inner.advertised.remove(&name) else {
-        return Ok(()); // nothing advertised under this name
+    let Some(fullname) = inner.advertised.remove(&(service_type.clone(), name)) else {
+        return Ok(()); // nothing advertised under this service_type/name pair
     };
     let Some(daemon) = &inner.daemon else {
         return Ok(());
@@ -149,7 +149,6 @@ fn unpublish(
     if let Err(err) = daemon.unregister(&fullname) {
         log::warn!("mDNS unregister of {fullname} failed: {err}");
     }
-    let _ = service_type; // retained in the IPC contract for symmetry
     Ok(())
 }
 
@@ -217,8 +216,22 @@ fn stop_browse(state: State<'_, MdnsState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Alias of `stop_browse`; the daemon itself lives for the app's lifetime.
 #[tauri::command]
 fn close(state: State<'_, MdnsState>) -> Result<(), String> {
-    stop_browse(state)
+    let mut inner = state.0.lock().unwrap();
+    let types: Vec<String> = inner.browse_types.drain().collect();
+    if let Some(daemon) = &inner.daemon {
+        for ty in types {
+            if let Err(err) = daemon.stop_browse(&ty) {
+                log::warn!("mDNS stop_browse({ty}) failed: {err}");
+            }
+        }
+        for fullname in inner.advertised.values() {
+            if let Err(err) = daemon.unregister(fullname) {
+                log::warn!("mDNS unregister of {fullname} failed: {err}");
+            }
+        }
+    }
+    inner.advertised.clear();
+    Ok(())
 }
