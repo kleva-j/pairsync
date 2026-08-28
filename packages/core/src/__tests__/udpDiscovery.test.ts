@@ -12,6 +12,7 @@ class FakeSocket implements MulticastSocket {
   readonly binds: Array<{ port: number; address?: string }> = [];
   readonly joined: string[] = [];
   readonly left: string[] = [];
+  readonly sequence: string[] = [];
   closed = false;
   failNextSend = false;
   failGroup?: string;
@@ -27,6 +28,7 @@ class FakeSocket implements MulticastSocket {
   async bind(port: number, address?: string): Promise<void> {
     this.closed = false;
     this.binds.push(address === undefined ? { port } : { port, address });
+    this.sequence.push(`bind:${port}`);
   }
 
   onMessage(handler: (data: Uint8Array, remote: { address: string; port: number }) => void): void {
@@ -48,6 +50,7 @@ class FakeSocket implements MulticastSocket {
     this.closed = false; // a real adapter re-binds lazily after close
     if (this.failGroup === group) throw new Error(`join ${group} failed`);
     this.joined.push(group);
+    this.sequence.push(`join:${group}`);
   }
 
   async leaveGroup(group: string): Promise<void> {
@@ -136,6 +139,11 @@ describe("MulticastDiscovery", () => {
     await discovery.start();
     expect(socket.binds).toEqual([{ port: DISCOVERY_PORT }]);
     expect(socket.joined).toEqual(["224.0.0.1", "ff02::1"]);
+    expect(socket.sequence).toEqual([
+      `bind:${DISCOVERY_PORT}`,
+      "join:224.0.0.1",
+      "join:ff02::1",
+    ]);
     await discovery.stop();
   });
 
