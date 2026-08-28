@@ -19,10 +19,10 @@ class FakeSocket implements TcpSocket {
     reject: (error: Error) => void;
   }> = [];
 
-  async connect(host: string, port: number): Promise<void> {
-    this.attempts.push({ host, port });
-    this.sent = [];
-    if (this.hangHosts.has(host)) {
+   async connect(host: string, port: number): Promise<void> {
+     this.attempts.push({ host, port });
+     this.sent.length = 0;
+     if (this.hangHosts.has(host)) {
       // Mimics the contract: close() aborts the in-flight connect.
       await new Promise<void>((_resolve, reject) => {
         this.pendingHangs.push({ reject });
