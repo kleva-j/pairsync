@@ -126,7 +126,7 @@ describe("ReactNativeMdnsService", () => {
     expect(lost).toEqual(["pairsync-peer"]);
   });
 
-  it("unpublishes the advertised service and stops", async () => {
+  it("unpublishes the advertised service", async () => {
     const zeroconf = makeZeroconf();
     jest.mocked(Zeroconf).mockImplementation(() => zeroconf as never);
 
@@ -135,16 +135,19 @@ describe("ReactNativeMdnsService", () => {
     await service.unpublish();
 
     expect(zeroconf.unpublishService).toHaveBeenCalledWith("pairsync-d1");
-    expect(zeroconf.stop).toHaveBeenCalled();
+    expect(zeroconf.stop).not.toHaveBeenCalled();
   });
 
-  it("close removes device listeners", async () => {
+  it("close unpublishes, stops, and removes device listeners", async () => {
     const zeroconf = makeZeroconf();
     jest.mocked(Zeroconf).mockImplementation(() => zeroconf as never);
 
     const service = new ReactNativeMdnsService();
+    await service.advertise("_pairsync._tcp.local", "pairsync-d1", 53350, {});
     await service.close();
 
+    expect(zeroconf.unpublishService).toHaveBeenCalledWith("pairsync-d1");
+    expect(zeroconf.stop).toHaveBeenCalled();
     expect(zeroconf.removeDeviceListeners).toHaveBeenCalled();
   });
 });
