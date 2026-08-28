@@ -20,9 +20,16 @@ export class TauriTcpSocket implements TcpSocket {
   private closed = false;
 
   constructor() {
-    this.dataUnlisten = listen<{ socketId: number; data: string }>("pairsync-tcp:data", (event) => {
-      if (event.payload.socketId !== this.socketId) return;
-      this.dataHandler?.(toByteArray(event.payload.data));
+    const dataPromise = listen<{ socketId: number; data: string }>(
+      "pairsync-tcp:data",
+      (event) => {
+        if (event.payload.socketId !== this.socketId) return;
+        this.dataHandler?.(toByteArray(event.payload.data));
+      },
+    );
+    this.dataUnlisten = dataPromise;
+    dataPromise.catch((error) => {
+      console.error("Failed to register TCP data listener", error);
     });
   }
 

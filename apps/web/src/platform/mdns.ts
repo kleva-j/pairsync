@@ -24,11 +24,20 @@ export class TauriMdnsService implements MdnsService {
   private closed = false;
 
   constructor() {
-    this.foundUnlisten = listen<FoundPayload>("pairsync-mdns:service-found", (event) => {
+    const foundPromise = listen<FoundPayload>("pairsync-mdns:service-found", (event) => {
       this.foundHandler?.(event.payload);
     });
-    this.lostUnlisten = listen<{ name: string }>("pairsync-mdns:service-lost", (event) => {
+    this.foundUnlisten = foundPromise;
+    foundPromise.catch((error) => {
+      console.error("Failed to register mDNS found listener", error);
+    });
+
+    const lostPromise = listen<{ name: string }>("pairsync-mdns:service-lost", (event) => {
       this.lostHandler?.(event.payload.name);
+    });
+    this.lostUnlisten = lostPromise;
+    lostPromise.catch((error) => {
+      console.error("Failed to register mDNS lost listener", error);
     });
   }
 
