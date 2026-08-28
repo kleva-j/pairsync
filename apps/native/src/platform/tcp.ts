@@ -16,11 +16,9 @@ export class ReactNativeTcpSocket implements TcpSocket {
       }
       const socket = TcpSocketModule.createConnection(
         { host, port, reuseAddress: true },
-        () => {
-          this.socket = socket;
-          resolve();
-        },
+        () => resolve(),
       );
+      this.socket = socket;
       socket.once("error", (error: Error) => {
         this.socket = null;
         reject(error);

@@ -121,10 +121,11 @@ export class ReactNativeMdnsService implements MdnsService {
       this.zeroconf.unpublishService(this.serviceName);
       this.serviceName = undefined;
     }
-    this.zeroconf.stop();
   }
 
   async close(): Promise<void> {
+    await this.unpublish();
+    this.zeroconf.stop();
     this.zeroconf.removeDeviceListeners();
   }
 }
