@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { MulticastSocket } from "@pairsync/core";
 
-import { decodeBase64, encodeBase64 } from "./base64";
+import { fromByteArray, toByteArray } from "base64-js";
 
 /**
  * Desktop multicast socket backed by the `pairsync-udp` Tauri plugin.
@@ -32,7 +32,7 @@ export class TauriMulticastSocket implements MulticastSocket {
       remote: { address: string; port: number };
     }>("pairsync-udp:message", (event) => {
       if (event.payload.socketId !== this.socketId) return;
-      this.messageHandler?.(decodeBase64(event.payload.data), event.payload.remote);
+      this.messageHandler?.(toByteArray(event.payload.data), event.payload.remote);
     });
     this.bound = true;
     this.unlisten = unlisten;
@@ -50,7 +50,7 @@ export class TauriMulticastSocket implements MulticastSocket {
   async send(data: Uint8Array, port: number, address: string): Promise<void> {
     await invoke("plugin:pairsync-udp|send", {
       socketId: this.socketId,
-      data: encodeBase64(data),
+      data: fromByteArray(data),
       port,
       address,
     });

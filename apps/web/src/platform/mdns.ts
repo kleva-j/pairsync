@@ -81,15 +81,18 @@ export class TauriMdnsService implements MdnsService {
     this.closed = true;
     try {
       await this.unpublish();
-      await invoke("plugin:pairsync-mdns|stop_browse");
     } finally {
-      if (this.foundUnlisten) {
-        const unlisten = await this.foundUnlisten;
-        unlisten();
-      }
-      if (this.lostUnlisten) {
-        const unlisten = await this.lostUnlisten;
-        unlisten();
+      try {
+        await invoke("plugin:pairsync-mdns|stop_browse");
+      } finally {
+        if (this.foundUnlisten) {
+          const unlisten = await this.foundUnlisten;
+          unlisten();
+        }
+        if (this.lostUnlisten) {
+          const unlisten = await this.lostUnlisten;
+          unlisten();
+        }
       }
     }
   }
