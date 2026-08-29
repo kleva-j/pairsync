@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Allows all pairsync-tcp commands"
+permissions = ["allow-connect", "allow-send", "allow-close"]

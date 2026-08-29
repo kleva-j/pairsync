@@ -1,0 +1,13 @@
+# Automatically generated - DO NOT EDIT!
+
+"$schema" = "../../schemas/schema.json"
+
+[[permission]]
+identifier = "allow-unpublish"
+description = "Enables the unpublish command without any pre-configured scope."
+commands.allow = ["unpublish"]
+
+[[permission]]
+identifier = "deny-unpublish"
+description = "Denies the unpublish command without any pre-configured scope."
+commands.deny = ["unpublish"]

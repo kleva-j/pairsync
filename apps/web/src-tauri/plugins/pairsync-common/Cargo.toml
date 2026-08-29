@@ -1,0 +1,10 @@
+[package]
+name = "pairsync-common"
+version = "0.1.0"
+description = "Shared utilities for PairSync Tauri plugins"
+authors = ["kleva-j <kasmickleva@gmail.com>"]
+license = "MIT"
+edition = "2021"
+
+[dependencies]
+base64 = "0.22"

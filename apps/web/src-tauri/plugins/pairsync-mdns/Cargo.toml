@@ -1,0 +1,16 @@
+[package]
+name = "pairsync-mdns"
+version = "0.1.0"
+description = "PairSync mDNS advertise/browse commands for the Tauri desktop shell"
+edition = "2021"
+rust-version = "1.77.2"
+links = "pairsync-mdns"
+
+[dependencies]
+log = "0.4"
+mdns-sd = "0.21"
+serde = { version = "1.0", features = ["derive"] }
+tauri = { version = "2" }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

@@ -1,0 +1,11 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "Allows all pairsync-mdns commands"
+permissions = [
+  "allow-advertise",
+  "allow-unpublish",
+  "allow-browse",
+  "allow-stop-browse",
+  "allow-close",
+]

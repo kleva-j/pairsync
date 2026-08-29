@@ -9,8 +9,10 @@ import type { Device, HeartbeatPayload } from "../types";
 /** In-memory socket implementing the platform contract (N-248). */
 class FakeSocket implements MulticastSocket {
   readonly messages: Array<{ data: Uint8Array; port: number; address: string }> = [];
+  readonly binds: Array<{ port: number; address?: string }> = [];
   readonly joined: string[] = [];
   readonly left: string[] = [];
+  readonly sequence: string[] = [];
   closed = false;
   failNextSend = false;
   failGroup?: string;
@@ -22,6 +24,12 @@ class FakeSocket implements MulticastSocket {
   closePending?: Promise<void>;
 
   private handler?: (data: Uint8Array, remote: { address: string; port: number }) => void;
+
+  async bind(port: number, address?: string): Promise<void> {
+    this.closed = false;
+    this.binds.push(address === undefined ? { port } : { port, address });
+    this.sequence.push(`bind:${port}`);
+  }
 
   onMessage(handler: (data: Uint8Array, remote: { address: string; port: number }) => void): void {
     this.handler = handler;
@@ -42,6 +50,7 @@ class FakeSocket implements MulticastSocket {
     this.closed = false; // a real adapter re-binds lazily after close
     if (this.failGroup === group) throw new Error(`join ${group} failed`);
     this.joined.push(group);
+    this.sequence.push(`join:${group}`);
   }
 
   async leaveGroup(group: string): Promise<void> {
@@ -125,6 +134,19 @@ function setup() {
 }
 
 describe("MulticastDiscovery", () => {
+  it("binds the discovery port before joining groups", async () => {
+    const { socket, discovery } = setup();
+    await discovery.start();
+    expect(socket.binds).toEqual([{ port: DISCOVERY_PORT }]);
+    expect(socket.joined).toEqual(["224.0.0.1", "ff02::1"]);
+    expect(socket.sequence).toEqual([
+      `bind:${DISCOVERY_PORT}`,
+      "join:224.0.0.1",
+      "join:ff02::1",
+    ]);
+    await discovery.stop();
+  });
+
   it("joins the IPv4 and IPv6 multicast groups on start", async () => {
     const { socket, discovery } = setup();
     await discovery.start();
@@ -281,9 +303,9 @@ describe("MulticastDiscovery", () => {
     release();
     await startPromise;
     expect(scheduler.pending).toBe(0); // no leaked 5s timer
-    // stop() left both groups, and the interrupted join was rolled back, so
+    // stop() left the configured groups before the delayed join could run, so
     // the socket is not left with a membership and nothing was announced.
-    expect(socket.left).toEqual(["224.0.0.1", "ff02::1", "224.0.0.1"]);
+    expect(socket.left).toEqual(["224.0.0.1", "ff02::1"]);
     expect(socket.messages.length).toBe(0);
     await scheduler.tick();
     expect(socket.messages.length).toBe(0); // nothing periodic after

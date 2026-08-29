@@ -57,9 +57,10 @@ apps/native/
    - Native clipboard access
 
 3. **Networking**
-   - UDP multicast discovery (react-native-udp — planned)
-   - mDNS discovery (react-native-mdns — planned)
-   - TCP connection management
+   - Platform adapters in `src/platform/` (`createReactNativePlatformNetwork()` → core's `PlatformNetworkAdapter`, Phase 2.5)
+   - UDP multicast discovery (react-native-udp)
+   - mDNS discovery (react-native-zeroconf)
+   - TCP connection management (react-native-tcp-socket)
    - Crypto for secure channel (react-native-quick-crypto: X25519, HKDF, AES-256-GCM — spike-verified)
 
 4. **Background Operations**
@@ -69,7 +70,7 @@ apps/native/
 
 5. **Shared Dependencies**
    - Consumes `packages/env` for environment schemas
-   - `packages/ui` (shared components) and `packages/core` (domain logic) are **planned** for later phases — not yet dependencies of `apps/native`
+   - Consumes `@pairsync/core` (domain logic) since Phase 2.5; `packages/ui` still planned
 
 ## External Dependencies
 
@@ -85,7 +86,7 @@ apps/native/
 | `expo-network` | Network info | ✅ |
 | `expo-secure-store` | Secure key-value storage | ✅ |
 
-**Planned (not yet installed, Phase 2+ of `IMPLEMENTATION_PLAN.md`):** `react-native-udp`, `react-native-zeroconf`, `expo-file-system`, `expo-sqlite`, `react-native-qrcode-svg`, `react-native-vision-camera`, `@pairsync/core`, `@pairsync/ui`.
+**Planned (not yet installed, Phase 2+ of `IMPLEMENTATION_PLAN.md`):** `expo-file-system`, `expo-sqlite`, `react-native-qrcode-svg`, `react-native-vision-camera`, `@pairsync/ui`. Installed in Phase 2.5: `@pairsync/core`, `react-native-udp`, `react-native-zeroconf`, `react-native-tcp-socket` (types stubbed in `src/platform/native-networking.d.ts`).
 
 ## Platform-Specific Notes
 

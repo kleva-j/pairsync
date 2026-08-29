@@ -2,6 +2,7 @@
 export type RuntimePlatform = "mobile" | "web" | "desktop" | "node" | "unknown";
 
 type GlobalWithWindow = typeof globalThis & {
+  navigator?: { product?: string };
   window?: {
     navigator?: { product?: string };
     __TAURI_INTERNALS__?: unknown;
@@ -18,7 +19,15 @@ function hasWindow(): boolean {
 }
 
 function runningInReactNative(): boolean {
-  return globalWithWindow().window?.navigator?.product === "ReactNative";
+  const global = globalWithWindow();
+  const hasNavigatorProduct = (nav: unknown): nav is { product: string } =>
+    typeof nav === "object" && nav !== null && "product" in nav;
+  return (
+    (hasNavigatorProduct(global.navigator) && global.navigator.product === "ReactNative") ||
+    (global.window !== undefined &&
+      hasNavigatorProduct(global.window.navigator) &&
+      global.window.navigator.product === "ReactNative")
+  );
 }
 
 function runningInTauri(): boolean {

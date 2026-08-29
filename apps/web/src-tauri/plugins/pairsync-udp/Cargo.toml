@@ -1,0 +1,17 @@
+[package]
+name = "pairsync-udp"
+version = "0.1.0"
+description = "PairSync UDP multicast socket commands for the Tauri desktop shell"
+edition = "2021"
+rust-version = "1.77.2"
+links = "pairsync-udp"
+
+[dependencies]
+log = "0.4"
+pairsync-common = { path = "../pairsync-common", version = "0.1.0" }
+serde = { version = "1.0", features = ["derive"] }
+socket2 = "0.5"
+tauri = { version = "2" }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

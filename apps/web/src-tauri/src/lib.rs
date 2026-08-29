@@ -1,6 +1,9 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    .plugin(pairsync_udp::init())
+    .plugin(pairsync_mdns::init())
+    .plugin(pairsync_tcp::init())
     .setup(|app| {
       if cfg!(debug_assertions) {
         app.handle().plugin(

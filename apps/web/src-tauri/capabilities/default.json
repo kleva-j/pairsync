@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "enables the default permissions",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "pairsync-udp:default",
+    "pairsync-mdns:default",
+    "pairsync-tcp:default"
+  ]
 }

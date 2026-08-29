@@ -48,6 +48,8 @@ export const MULTICAST_GROUPS = Object.freeze({
  * own memberships so `leaveGroup` undoes exactly what `joinGroup` set up.
  */
 export interface MulticastSocket {
+  /** Binds the socket before group membership or sends. */
+  bind(port: number, address?: string): Promise<void>;
   /** Registers the inbound-datagram handler (called by the adapter). */
   onMessage(handler: (data: Uint8Array, remote: { address: string; port: number }) => void): void;
   /** Sends a datagram to `address:port`. */
@@ -146,6 +148,18 @@ export class MulticastDiscovery {
     if (this.started) return; // a racing start won while we waited
     this.started = true;
     const run = (async () => {
+      try {
+        await this.socket.bind(DISCOVERY_PORT);
+      } catch (error) {
+        this.started = false;
+        this.reportError(error);
+        await this.closeBestEffort();
+        return;
+      }
+      if (!this.started) {
+        await this.closeBestEffort();
+        return;
+      }
       for (const group of this.groups) {
         if (!this.started) return;
         try {
@@ -262,5 +276,13 @@ export class MulticastDiscovery {
 
   private reportError(error: unknown): void {
     this.onError?.(error);
+  }
+
+  private async closeBestEffort(): Promise<void> {
+    try {
+      await this.socket.close();
+    } catch (error) {
+      this.reportError(error);
+    }
   }
 }

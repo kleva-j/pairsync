@@ -81,8 +81,8 @@ pairsync/
 | **Shared Core** | TypeScript (Strict) + XState | ✅ Implemented |
 | **Mobile UI** | React Native 0.86 + Expo SDK 57 + Expo Router | ✅ Skeleton exists |
 | **Desktop UI** | Tauri 2.x + React 19 + Vite + TailwindCSS v4 | ✅ Skeleton exists |
-| **Mobile Networking** | react-native-udp, react-native-zeroconf | ⏳ Planned |
-| **Desktop Networking** | Tauri Rust plugins (socket2/tokio, mdns-sd) | ⏳ Planned |
+| **Mobile Networking** | react-native-udp, react-native-zeroconf, react-native-tcp-socket | ✅ Adapter implemented (`apps/native/src/platform`) |
+| **Desktop Networking** | Tauri Rust plugins (`pairsync-udp`/`pairsync-mdns`/`pairsync-tcp`, mdns-sd) | ✅ Plugins + adapter implemented (`apps/web/src/platform`) |
 | **Crypto (Mobile)** | react-native-quick-crypto (X25519, SHA-256, HKDF, AES-256-GCM) | ✅ Installed (spike-verified) |
 | **Crypto (Desktop)** | x25519-dalek, hkdf, aes-gcm | ⏳ Planned |
 | **State Management** | XState | ✅ Core implemented |
