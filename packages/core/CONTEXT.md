@@ -10,7 +10,7 @@
 
 The **core** package is the home for **platform-agnostic PairSync domain logic** — the business rules for how devices discover each other, how files are transferred, and how trust/security is handled. Per `IMPLEMENTATION_PLAN.md` this is where the "heart" of PairSync lives so web and native can share it.
 
-> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 + 2.5 implemented.**
+> ✅ **Status: Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 + 2.5 + 3.11 (core SQLite foundation) implemented.**
 >
 > Shared types, constants, platform utils, the three XState machines (comprehensively unit-tested),
 > the shared protocol constants, the zod wire-message schemas, the heartbeat protocol logic,
@@ -22,7 +22,7 @@ The **core** package is the home for **platform-agnostic PairSync domain logic**
 > **Phase 1 (Core Infrastructure) is complete; Phase 2.1–2.5 (UDP multicast, mDNS, device list,
 > connection initiation, platform abstraction layer) are done.**
 >
-> Still **Planned**: manual IP fallback, transfer engine, security (see the table below).
+> Still **Planned**: manual IP fallback, transfer engine, security, and platform-specific SQLite wiring (see the table below).
 > Platform adapters live in the apps: `apps/native/src/platform` (react-native-udp/zeroconf/tcp-socket)
 > and `apps/web/src/platform` + `apps/web/src-tauri/plugins/*` (Tauri Rust plugins), both consuming
 > `@pairsync/core` via `workspace:*`.
@@ -32,7 +32,7 @@ The **core** package is the home for **platform-agnostic PairSync domain logic**
 ```text
 packages/core/
 ├── src/
-│   ├── index.ts           # Re-exports ./types, ./protocol, ./constants, ./utils, ./network, ./discovery, ./state
+│   ├── index.ts           # Re-exports ./types, ./protocol, ./constants, ./utils, ./network, ./discovery, ./platform, ./database, ./state
 │   ├── types/
 │   │   ├── device.ts      # Platform, NetworkInterface, Device
 │   │   ├── transfer.ts    # TransferState, Transfer, Chunk, Manifest
@@ -61,6 +61,9 @@ packages/core/
 │   │   └── index.ts
 │   ├── platform/
 │   │   └── index.ts       # PlatformNetworkAdapter contract + runtime selection/factory (2.5)
+│   ├── database/
+│   │   ├── sqlite.ts       # SQLite foundation (contracts, schema bootstrap, lifecycle, typed errors) (3.11 core)
+│   │   └── index.ts
 │   └── __tests__/         # Vitest: constants, protocol constants, machines, platform, heartbeat, discovery
 ├── package.json           # @pairsync/core — exports "./src/index.ts", test script
 └── tsconfig.json          # extends @pairsync/config/tsconfig.base.json
@@ -83,7 +86,7 @@ Import as `import { Device, CHUNK_SIZE, isMobile } from "@pairsync/core";` — t
 | `base64-js` | ✅ Installed (used) | RFC 4648 base64 encoding of wire chunk payloads (`src/protocol/schemas.ts`) |
 | `ipaddr.js` | ✅ Installed (used) | IPv4/IPv6 parsing + locality/loopback classification (`src/network/interfaces.ts`) |
 | `fast-deep-equal` | ✅ Installed (used) | Key-order-independent interface comparison (`src/discovery/deviceManager.ts`) |
-| `vitest` | ✅ devDep | Unit tests (235 passing) |
+| `vitest` | ✅ devDep | Unit tests (249 passing) |
 
 Platform-specific crypto/networking libraries live in the **apps**, not core — e.g. `react-native-quick-crypto` in `apps/native` (spike-verified for X25519/HKDF/AES-256-GCM) and Rust crates in the Tauri app.
 
@@ -104,8 +107,9 @@ Platform-specific crypto/networking libraries live in the **apps**, not core —
 | Device list management (DeviceManager: add/update/remove, timeout expiry, deduplication) | Phase 2 (2.3) | ✅ Implemented + tested |
 | Connection initiation (ConnectionInitiator: TCP connect, per-attempt timeout, backoff, typed errors) | Phase 2 (2.4) | ✅ Implemented + tested |
 | Platform abstraction layer (PlatformNetworkAdapter contract, runtime-keyed selection, unsupported-runtime stubs) — mobile adapter in `apps/native`, desktop Tauri plugins + adapter in `apps/web` | Phase 2 (2.5) | ✅ Implemented + tested (selection/fallbacks; adapters tested in their apps) |
+| SQLite database foundation (driver contract, schema bootstrap, single-connection lifecycle, typed errors) | Phase 3 (3.11 core scope) | ✅ Implemented + tested |
 | Manual IP fallback | Phase 2 | 🚧 Planned |
-| SQLite database setup + schema | Phase 2 | 🚧 Planned |
+| SQLite platform initialization (`expo-sqlite` / `rusqlite`) | Phase 3 (3.11 app wiring) | 🚧 Planned |
 | Transfer engine (prepare, chunked upload/download, resume, verify, queue) | Phase 3 | 🚧 Planned |
 | Clipboard + folder transfers | Phase 3 | 🚧 Planned |
 | Transfer manifest persistence | Phase 3 | 🚧 Planned |
@@ -203,7 +207,7 @@ X-Cert-Fingerprint: <SHA-256 of sender's cert>
 
 ## Testing
 
-Vitest is configured (`test: vitest run`). 228 unit tests pass covering protocol constants (version/ports/headers/message types), the zod wire-message schemas and builders (prepare/chunk/resume round-trips, field validation, canonical SHA-256 digest validation, chunk-layout consistency, RFC 4648 base64 chunk encoding/decoding with known vectors, discriminator pinning, unknown-discriminator rejection, discriminated-union dispatch), shared constants (timeouts/sizes), the three XState machines (every state/transition/guard, including device loss, retry caps, resume caps, zero-chunk transfers, timeout-cleared-on-exit, and ignored events in the wrong state), platform detection (node/web/mobile/desktop via stubbed globals), the heartbeat module (build/parse validation, missed-heartbeat counting, tracker expiry with an injected clock), interface selection (RFC1918/ULA/link-local locality, scoped-IPv6 zone normalization, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff schedule), UDP multicast discovery (group joins, immediate + interval sends, fresh heartbeat payloads, own-echo dedupe, malformed-datagram tolerance, send/join failure recovery, stop cleanup, concurrent start/stop guards, stop-during-start membership rollback, start-during-stop serialization, overlapping-tick dropping, lifecycle-gated receive, restart — over an in-memory socket), mDNS discovery (service advertisement/browsing, own-service dedupe, service-loss callbacks, TXT record validation, advertise/browse failure recovery, stop cleanup, concurrent start/stop guards, lifecycle-gated callbacks, restart — over an in-memory mDNS service), device list management (add/update/remove with deduplication by device_id, configurable timeout expiry with re-arm on re-discovery, explicit removal, lifecycle callbacks, multi-device independence — over an in-memory device list), and connection initiation (success path with best-candidate ordering and heartbeat-port fallback, default-port fallback across unusable advertised ports, multi-candidate fallback with 1s/2s backoff and custom base, custom clock, per-attempt timeout with socket reset, timeout recovery onto the next candidate, terminal timeout classification, all-refused `connect_failed` with per-attempt `onError`, `no_candidates` for empty and unreachable interfaces, option validation, close delegation, per-connect socket isolation — over an in-memory TCP socket). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
+Vitest is configured (`test: vitest run`). 249 unit tests pass covering protocol constants (version/ports/headers/message types), the zod wire-message schemas and builders (prepare/chunk/resume round-trips, field validation, canonical SHA-256 digest validation, chunk-layout consistency, RFC 4648 base64 chunk encoding/decoding with known vectors, discriminator pinning, unknown-discriminator rejection, discriminated-union dispatch), shared constants (timeouts/sizes), the three XState machines (every state/transition/guard, including device loss, retry caps, resume caps, zero-chunk transfers, timeout-cleared-on-exit, and ignored events in the wrong state), platform detection (node/web/mobile/desktop via stubbed globals), the heartbeat module (build/parse validation, missed-heartbeat counting, tracker expiry with an injected clock), interface selection (RFC1918/ULA/link-local locality, scoped-IPv6 zone normalization, Wi-Fi/Ethernet priority ranking, VPN/loopback filtering, backoff schedule), UDP multicast discovery (group joins, immediate + interval sends, fresh heartbeat payloads, own-echo dedupe, malformed-datagram tolerance, send/join failure recovery, stop cleanup, concurrent start/stop guards, stop-during-start membership rollback, start-during-stop serialization, overlapping-tick dropping, lifecycle-gated receive, restart — over an in-memory socket), mDNS discovery (service advertisement/browsing, own-service dedupe, service-loss callbacks, TXT record validation, advertise/browse failure recovery, stop cleanup, concurrent start/stop guards, lifecycle-gated callbacks, restart — over an in-memory mDNS service), device list management (add/update/remove with deduplication by device_id, configurable timeout expiry with re-arm on re-discovery, explicit removal, lifecycle callbacks, multi-device independence — over an in-memory device list), and connection initiation (success path with best-candidate ordering and heartbeat-port fallback, default-port fallback across unusable advertised ports, multi-candidate fallback with 1s/2s backoff and custom base, custom clock, per-attempt timeout with socket reset, timeout recovery onto the next candidate, terminal timeout classification, all-refused `connect_failed` with per-attempt `onError`, `no_candidates` for empty and unreachable interfaces, option validation, close delegation, per-connect socket isolation — over an in-memory TCP socket). Test files live in `src/__tests__/`. Run from the package root with `pnpm test`, or everything from the repo root with `pnpm test`. CI runs this in the `test` job.
 
 ## ADRs
 
