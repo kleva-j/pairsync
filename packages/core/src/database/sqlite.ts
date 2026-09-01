@@ -249,17 +249,21 @@ export async function applySqliteSchema(
   connection: SqliteConnection,
   schema: SqliteSchemaDefinition = SQLITE_DEFAULT_SCHEMA,
 ): Promise<void> {
-  await connection.execute("BEGIN IMMEDIATE");
+  let transactionStarted = false;
   try {
+    await connection.execute("BEGIN IMMEDIATE");
+    transactionStarted = true;
     for (const statement of schema.statements) {
       await connection.execute(statement);
     }
     await connection.execute("COMMIT");
   } catch (error) {
-    try {
-      await connection.execute("ROLLBACK");
-    } catch {
-      // Ignore rollback failures and preserve the original schema error.
+    if (transactionStarted) {
+      try {
+        await connection.execute("ROLLBACK");
+      } catch {
+        // Ignore rollback failures and preserve the original schema error.
+      }
     }
     if (error instanceof SqliteDatabaseError) {
       throw error;
