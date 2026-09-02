@@ -23,7 +23,7 @@ export class TauriMulticastSocket implements MulticastSocket {
 
   async bind(port: number, address?: string): Promise<void> {
     if (this.closed) {
-      throw new Error("Socket is closed");
+      this.closed = false;
     }
     await invoke("plugin:pairsync-udp|bind", { socketId: this.socketId, port, address });
     const unlisten = await listen<{

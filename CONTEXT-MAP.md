@@ -117,7 +117,7 @@ Root-level ADRs that apply to the entire monorepo are stored in `docs/adr/`. Con
 
 The diagram shows the **target** architecture. Current dependency reality:
 
-- **core** holds implemented shared types/constants/utils but nothing imports `@pairsync/core` yet (consumers arrive in Phase 2)
+- **core** holds implemented shared types/constants/utils and is imported by `apps/native` and `apps/web` for platform adapters and database foundation
 - **ui** is consumed by `apps/web` only (native uses `uniwind` + `heroui-native`)
 - **env** is declared in web/native/root manifests but imported by no code yet
 - **config** has no runtime exports — it only ships `tsconfig.base.json`

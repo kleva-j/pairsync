@@ -51,10 +51,10 @@ pairsync/
 ### 📋 Planned (Phases 2-5)
 
 **Phase 2 - Discovery & Connect:**
-- ✅ UDP multicast discovery engine (core; platform socket adapters pending)
-- ✅ mDNS discovery engine (core; platform adapter pending)
+- ✅ UDP multicast discovery engine (core + platform adapters)
+- ✅ mDNS discovery engine (core + platform adapters)
 - ✅ Device list management (core: add/update/remove, timeout expiry, deduplication)
-- ✅ Connection initiation + platform network abstraction (core)
+- ✅ Connection initiation + platform network abstraction (core + adapters)
 - ⏳ Manual IP fallback mechanism
 
 **Phase 3 - Transfer Engine:**

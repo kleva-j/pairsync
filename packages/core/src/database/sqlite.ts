@@ -131,6 +131,9 @@ export class SqliteDatabase {
   }
 
   async initialize(): Promise<void> {
+    if (this.closePromise) {
+      await this.closePromise;
+    }
     if (this.connection) {
       return;
     }
@@ -208,7 +211,6 @@ export class SqliteDatabase {
     }
 
     const connection = this.connection;
-    this.connection = null;
     if (!connection) {
       return;
     }
@@ -216,8 +218,11 @@ export class SqliteDatabase {
     try {
       await connection.close();
     } catch (error) {
+      // Retain connection reference on close failure so callers can retry
       throw this.fail("close_failed", "Failed to close SQLite connection", error);
     }
+
+    this.connection = null;
   }
 
   private requireConnection(): SqliteConnection {

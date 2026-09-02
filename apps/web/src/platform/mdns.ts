@@ -42,6 +42,9 @@ export class TauriMdnsService implements MdnsService {
   }
 
   async browse(serviceType: string): Promise<void> {
+    if (this.closed) {
+      throw new Error("TauriMdnsService is closed");
+    }
     await this.foundUnlisten;
     await this.lostUnlisten;
     await invoke("plugin:pairsync-mdns|browse", { serviceType });
@@ -53,6 +56,9 @@ export class TauriMdnsService implements MdnsService {
     port: number,
     txt: Record<string, string>,
   ): Promise<void> {
+    if (this.closed) {
+      throw new Error("TauriMdnsService is closed");
+    }
     await invoke("plugin:pairsync-mdns|advertise", {
       serviceType,
       name,
@@ -78,6 +84,7 @@ export class TauriMdnsService implements MdnsService {
   }
 
   async close(): Promise<void> {
+    if (this.closed) return;
     this.closed = true;
     try {
       await this.unpublish();
