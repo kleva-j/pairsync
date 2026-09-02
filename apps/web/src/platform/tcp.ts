@@ -34,12 +34,19 @@ export class TauriTcpSocket implements TcpSocket {
   }
 
   async connect(host: string, port: number): Promise<void> {
+    if (this.closed) {
+      throw new Error("Cannot connect: TCP socket is closed");
+    }
     await this.dataUnlisten;
     await invoke("plugin:pairsync-tcp|connect", {
       socketId: this.socketId,
       host,
       port,
     });
+    if (this.closed) {
+      // close() was called during the connect operation
+      throw new Error("TCP socket was closed during connect");
+    }
     this.connected = true;
   }
 
