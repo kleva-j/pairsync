@@ -17,7 +17,7 @@ The **native** app provides the **iOS and Android mobile application** interface
 | **Expo** | React Native development platform | Expo Go app |
 | **Expo Router** | File-based routing for React Native | `app/(drawer)/index.tsx` |
 | **Mobile Target** | iOS and Android native applications | `.ipa` (iOS), `.apk` (Android) |
-| **Native Modules** | Platform-specific native code bridges | react-native-udp, react-native-mdns |
+| **Native Modules** | Platform-specific native code bridges | react-native-udp, react-native-zeroconf |
 | **Battery Optimization** | Preventing OS from killing background tasks | REQUEST_IGNORE_BATTERY_OPTIMIZATIONS |
 
 ## Architecture

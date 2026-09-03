@@ -39,7 +39,7 @@ pairsync/
 - ✅ Wire-message schemas + builders (zod: prepare/chunk/resume + discriminated union)
 - ✅ Heartbeat protocol logic (datagram building/parsing, missed-heartbeat expiry)
 - ✅ Network interface selection (RFC1918/ULA/link-local locality, Wi-Fi/Ethernet priority)
-- ✅ Comprehensive unit tests (234 passing tests)
+- ✅ Comprehensive unit tests (249 passing tests)
 
 **Build & Testing Infrastructure:**
 - ✅ Turborepo pipeline with dependency-aware task scheduling
@@ -51,12 +51,14 @@ pairsync/
 ### 📋 Planned (Phases 2-5)
 
 **Phase 2 - Discovery & Connect:**
-- ✅ UDP multicast discovery engine (core; platform socket adapters pending)
-- ✅ mDNS discovery engine (core; platform adapter pending)
+- ✅ UDP multicast discovery engine (core + platform adapters)
+- ✅ mDNS discovery engine (core + platform adapters)
 - ✅ Device list management (core: add/update/remove, timeout expiry, deduplication)
+- ✅ Connection initiation + platform network abstraction (core + adapters)
 - ⏳ Manual IP fallback mechanism
 
 **Phase 3 - Transfer Engine:**
+- ✅ SQLite database core foundation (shared schema bootstrap + typed lifecycle/errors)
 - Chunked file streaming (4MB chunks)
 - Resume capability for interrupted transfers
 - Transfer verification and integrity checking
@@ -86,7 +88,7 @@ pairsync/
 | **Crypto (Mobile)** | react-native-quick-crypto (X25519, SHA-256, HKDF, AES-256-GCM) | ✅ Installed (spike-verified) |
 | **Crypto (Desktop)** | x25519-dalek, hkdf, aes-gcm | ⏳ Planned |
 | **State Management** | XState | ✅ Core implemented |
-| **Storage** | SQLite (expo-sqlite / rusqlite) | ⏳ Planned |
+| **Storage** | SQLite (expo-sqlite / rusqlite) | 🚧 Core foundation implemented; platform wiring pending |
 
 ## 📦 Getting Started
 

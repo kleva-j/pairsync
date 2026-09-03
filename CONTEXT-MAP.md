@@ -35,7 +35,7 @@ This is the root context map for the **PairSync** monorepo. Each context below d
 - **Location:** `packages/core/`
 - **CONTEXT.md:** `packages/core/CONTEXT.md`
 - **Domain:** Shared domain logic, state machines, and protocols
-- **Status:** ✅ Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 implemented — shared types, constants, platform utils, the three XState machines, shared protocol constants, zod wire-message schemas, heartbeat protocol logic, interface selection, state-machine tests, UDP multicast discovery engine, mDNS discovery engine, and device list manager; Phase 1 complete + Phase 2.1, 2.2 & 2.3 done (nothing imports it yet)
+- **Status:** ✅ Phase 0.6 + 1.1 + 1.2 + 1.5 + 1.6 + 1.7 + 1.8 + 2.1 + 2.2 + 2.3 + 2.4 + 2.5 + 3.11 (core SQLite foundation) implemented — shared types, constants, platform utils, the three XState machines, shared protocol constants, zod wire-message schemas, heartbeat protocol logic, interface selection, state-machine tests, UDP multicast discovery engine, mDNS discovery engine, device list manager, connection initiation, platform adapter selection, and core SQLite schema/lifecycle foundation; platform runtime wiring still pending
 - **Responsibilities:**
   - Shared types (device/transfer/protocol), constants (timeouts/sizes), platform utils — ✅ implemented + tested (Phase 0.6)
   - Core state machines (XState) for device, discovery, transfer states — ✅ implemented + tested (Phase 1.1)
@@ -47,6 +47,8 @@ This is the root context map for the **PairSync** monorepo. Each context below d
   - UDP multicast discovery engine (MulticastDiscovery over a MulticastSocket contract: group joins, 5s heartbeat cadence, own-echo dedupe) — ✅ implemented + tested (Phase 2.1)
   - mDNS discovery engine (MdnsDiscovery over an MdnsService contract: service advertisement/browsing, own-service dedupe, service-loss callbacks) — ✅ implemented + tested (Phase 2.2); manual IP fallback — planned (Phase 2)
   - Device list manager (DeviceManager: add/update/remove with deduplication by device_id, timeout expiry with re-arm, lifecycle callbacks) — ✅ implemented + tested (Phase 2.3)
+  - Connection initiation + platform network abstraction (ConnectionInitiator + PlatformNetworkAdapter runtime selection/fallbacks) — ✅ implemented + tested (Phases 2.4/2.5)
+  - SQLite database foundation (contracts, shared schema bootstrap, single-connection lifecycle, typed errors) — ✅ implemented + tested (Phase 3.11 core scope)
   - Transfer engine (chunked streaming, resume, verification) — planned (Phase 3)
   - Security (QR-authenticated ECDH→HKDF→AES-256-GCM over plaintext TCP, no TLS) — planned (Phase 4)
 
@@ -115,7 +117,7 @@ Root-level ADRs that apply to the entire monorepo are stored in `docs/adr/`. Con
 
 The diagram shows the **target** architecture. Current dependency reality:
 
-- **core** holds implemented shared types/constants/utils but nothing imports `@pairsync/core` yet (consumers arrive in Phase 2)
+- **core** holds implemented shared types/constants/utils and is imported by `apps/native` and `apps/web` for platform adapters and database foundation
 - **ui** is consumed by `apps/web` only (native uses `uniwind` + `heroui-native`)
 - **env** is declared in web/native/root manifests but imported by no code yet
 - **config** has no runtime exports — it only ships `tsconfig.base.json`

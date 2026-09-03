@@ -66,7 +66,7 @@ pairsync/
 | QR pairing           | ❌ Planned (Ph4) | Generation, scanning, manual entry                                    |
 | File transfer        | ❌ Planned (Ph3) | Chunked streaming, resume, verification                               |
 | Clipboard sync       | ❌ Planned (Ph3) | Rich content type handling                                            |
-| Database             | ❌ Planned (Ph3) | SQLite for trusted devices, manifests (re-sequenced from Phase 2)     |
+| Database             | 🚧 In progress (Ph3) | Core SQLite foundation landed (N-255); platform wiring + migrations pending |
 | Background transfers | ❌ Planned (Ph5) | Platform-specific (iOS BG tasks, Android foreground service, desktop) |
 | Security UI          | ❌ Planned (Ph4) | Trust prompts, indicators, device management                          |
 | Accessibility        | ❌ Planned (Ph5) | WCAG 2.1 AA compliance                                                |
@@ -86,7 +86,7 @@ pairsync/
 | Crypto (Desktop)   | `x25519-dalek`, `hkdf`, `aes-gcm` (Rust crates)                         | ⚠️ Not integrated  |
 | QR Code            | `react-native-qrcode-svg`, `react-native-vision-camera`, `qrcode`, `zbar`         | ⚠️ Not integrated  |
 | State              | XState (three machines) + platform-local React state                               | ⚠️ Not integrated  |
-| Storage            | SQLite (`expo-sqlite` / `rusqlite`)                                               | ⚠️ Not integrated  |
+| Storage            | SQLite (`expo-sqlite` / `rusqlite`)                                               | 🚧 Core foundation implemented; app wiring pending  |
 
 ---
 
@@ -482,7 +482,7 @@ This phase implements:
 | 3.8  | Implement clipboard transfer                  | Handle all supported content types (text, images, etc.)                                      | Clipboard content transferred correctly            | Medium   | Platform differences in clipboard APIs |
 | 3.9  | Handle large folder trees                     | Batched manifest generation, user warnings                                                   | Large folders handled gracefully                   | Medium   | Memory usage, performance              |
 | 3.10 | Handle partial failure modes                  | Disk full, permissions, app kill, network drop                                               | Appropriate error messages and recovery            | **HIGH** | Many edge cases                        |
-| 3.11 | Set up SQLite database layer                  | `expo-sqlite` (mobile), `rusqlite` (desktop); schema + migrations (re-sequenced from Phase 2) | DB initializes on both platforms                   | Medium   | Platform SQLite APIs differ            |
+| 3.11 | Set up SQLite database layer                  | Core foundation implemented in `packages/core/src/database/sqlite.ts` (contracts, schema bootstrap, lifecycle, typed errors); `expo-sqlite`/`rusqlite` runtime wiring pending | DB initializes on both platforms                   | Medium   | Platform SQLite APIs differ            |
 | 3.12 | Schema versioning & migrations                | Track schema version, apply migrations on launch                                             | Migrations apply automatically                     | Medium   | Test migrations thoroughly             |
 | 3.13 | Persist transfer manifests                    | Store manifests + chunk bitmap in SQLite for resume across app restarts (moved from Phase 5) | Resume works after app restart                     | Medium   | Atomic writes, checksums on manifest   |
 

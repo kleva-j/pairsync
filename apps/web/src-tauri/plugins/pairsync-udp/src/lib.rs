@@ -202,9 +202,12 @@ fn bind<R: Runtime>(
         cancel: Arc::new(AtomicBool::new(false)),
     };
 
-    // A re-bind of the same id replaces (and cancels) any previous entry.
+    // Close and cancel any previous entry before creating replacement sockets.
     if let Some(previous) = lock_map(&state).remove(&socket_id) {
         previous.cancel.store(true, Ordering::Relaxed);
+        // Drop the sockets explicitly to ensure FD reclamation
+        drop(previous.v4);
+        drop(previous.v6);
     }
 
     if let Some(v4) = entry.v4.clone() {

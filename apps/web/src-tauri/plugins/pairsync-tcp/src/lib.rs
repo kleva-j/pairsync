@@ -22,9 +22,10 @@ use tauri::{
     AppHandle, Emitter, Manager, Runtime, State,
 };
 
-/// Per-attempt connect budget; mirrors the core `CONNECTION_TIMEOUT` intent
-/// (the engine applies its own deadline across candidates).
-const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Per-address TCP connect timeout. The core ConnectionInitiator applies
+/// its own 10s deadline across all candidates; this 3s budget lets us try
+/// multiple addresses when DNS returns both IPv4 and IPv6.
+const PER_ADDRESS_TIMEOUT: Duration = Duration::from_secs(3);
 
 /// Long enough to amortize wakeups, short enough that `close()` reclaims
 /// reader threads promptly.
@@ -98,7 +99,7 @@ fn spawn_reader<R: Runtime>(
 }
 
 #[tauri::command]
-fn connect<R: Runtime>(
+async fn connect<R: Runtime>(
     app: AppHandle<R>,
     state: State<'_, ConnectionMap>,
     socket_id: u32,
@@ -111,26 +112,41 @@ fn connect<R: Runtime>(
         cancel: cancel.clone(),
     });
 
-    let addrs: Vec<SocketAddr> = (host.as_str(), port)
-        .to_socket_addrs()
-        .map_err(|err| format!("failed to resolve {host}:{port}: {err}"))?
-        .collect();
+    // DNS resolution in blocking context
+    let addrs: Vec<SocketAddr> = tauri::async_runtime::spawn_blocking({
+        let host = host.clone();
+        move || {
+            (host.as_str(), port)
+                .to_socket_addrs()
+                .map(|iter| iter.collect::<Vec<_>>())
+        }
+    })
+    .await
+    .map_err(|_| "task panicked".to_string())?
+    .map_err(|err| format!("failed to resolve {host}:{port}: {err}"))?;
+
     if addrs.is_empty() {
         state.0.lock().unwrap().remove(&socket_id);
         return Err(format!("no addresses resolved for {host}:{port}"));
     }
 
-    const PER_ADDRESS_TIMEOUT: Duration = Duration::from_secs(3);
-    let mut last_err = String::from("no address families succeeded");
-    let stream = addrs.iter().find_map(|addr| {
-        match TcpStream::connect_timeout(addr, PER_ADDRESS_TIMEOUT) {
-            Ok(stream) => Some(stream),
-            Err(err) => {
-                last_err = format!("connect to {addr} failed: {err}");
-                None
+    // Connection attempts in blocking context
+    let (stream, last_err) = tauri::async_runtime::spawn_blocking(move || {
+        let mut last_err = String::from("no address families succeeded");
+        let stream = addrs.iter().find_map(|addr| {
+            match TcpStream::connect_timeout(addr, PER_ADDRESS_TIMEOUT) {
+                Ok(stream) => Some(stream),
+                Err(err) => {
+                    last_err = format!("connect to {addr} failed: {err}");
+                    None
+                }
             }
-        }
-    });
+        });
+        (stream, last_err)
+    })
+    .await
+    .map_err(|_| "task panicked".to_string())?;
+
     let Some(stream) = stream else {
         state.0.lock().unwrap().remove(&socket_id);
         return Err(last_err);
@@ -156,19 +172,33 @@ fn connect<R: Runtime>(
 }
 
 #[tauri::command]
-fn send(state: State<'_, ConnectionMap>, socket_id: u32, data: String) -> Result<(), String> {
-    let bytes = decode_b64(&data)?;
-    let stream = {
+async fn send(state: State<'_, ConnectionMap>, socket_id: u32, data: String) -> Result<(), String> {
+    let stream_arc = {
         let map = state.0.lock().unwrap();
         let entry = map.get(&socket_id)
             .ok_or_else(|| format!("unknown TCP socket #{socket_id}"))?;
         entry.stream.clone()
             .ok_or_else(|| format!("TCP socket #{socket_id} is not connected"))?
     };
-    let mut stream = stream.lock().unwrap();
-    stream
-        .write_all(&bytes)
-        .map_err(|err| format!("failed to write to TCP socket #{socket_id}: {err}"))?;
+
+    let decoded = tauri::async_runtime::spawn_blocking({
+        let data = data.clone();
+        move || {
+            decode_b64(&data)
+                .map_err(|err| format!("base64 decode failed: {err}"))
+        }
+    })
+    .await
+    .map_err(|_| "task panicked".to_string())??;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut stream = stream_arc.lock().unwrap();
+        stream.write_all(&decoded)
+            .map_err(|err| format!("failed to write to TCP socket #{socket_id}: {err}"))
+    })
+    .await
+    .map_err(|_| "task panicked".to_string())??;
+
     Ok(())
 }
 

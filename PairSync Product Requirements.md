@@ -866,8 +866,8 @@ If QR code pairing is **not available** (e.g., no camera, user declines camera p
                 ▼                                             ▼
    ┌─────────────────────────┐                   ┌─────────────────────────┐
    │   Native UDP/mDNS       │                   │   Rust UDP/mDNS Bridge  │
-   │   (react-native-udp,     │                   │   (Tauri plugins)        │
-   │    react-native-mdns)    │                   └─────────────────────────┘
+   │   (react-native-udp,    │                   │   (Tauri plugins)       │
+   │ react-native-zeroconf)  │                   └─────────────────────────┘
    └─────────────────────────┘
 ```
 
