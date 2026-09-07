@@ -316,6 +316,7 @@ describe("SqliteDatabase", () => {
         driver,
         open: { name: "pairsync.db" },
         migrations: [migration],
+        runMigrations: true,
       });
 
       connection.setUserVersion(1);
@@ -349,14 +350,15 @@ describe("SqliteDatabase", () => {
         driver,
         open: { name: "pairsync.db" },
         migrations,
+        runMigrations: true,
       });
 
       connection.setUserVersion(1);
       await database.initialize();
 
       expect(connection.executed).toContain("CREATE TABLE test1 (id INTEGER)");
-      expect(connection.executed).toContain("PRAGMA user_version = 2");
       expect(connection.executed).toContain("CREATE TABLE test2 (id INTEGER)");
+      // Version is written once at the end of the chain (final target).
       expect(connection.executed).toContain("PRAGMA user_version = 3");
     });
 
@@ -406,6 +408,7 @@ describe("SqliteDatabase", () => {
         open: { name: "pairsync.db" },
         migrations: [migration],
         backup: { filesystem, retain: 3 },
+        runMigrations: true,
       });
 
       connection.failOn.set("INVALID SQL", new Error("bad SQL"));
@@ -437,6 +440,7 @@ describe("SqliteDatabase", () => {
         driver,
         open: { name: "pairsync.db" },
         migrations: [migration],
+        runMigrations: true,
       });
 
       connection.setUserVersion(1);
@@ -461,7 +465,7 @@ describe("SqliteDatabase", () => {
       const deletedFiles: string[] = [];
       const filesystem: SqliteBackupFilesystem = {
         copyFile: async () => {},
-        deleteFile: async (path) => {
+        deleteFile: async (path: string) => {
           deletedFiles.push(path);
         },
         listBackups: async () => [
@@ -480,6 +484,7 @@ describe("SqliteDatabase", () => {
         open: { name: "pairsync.db" },
         migrations: [migration],
         backup: { filesystem, retain: 3 },
+        runMigrations: true,
       });
 
       connection.setUserVersion(1);

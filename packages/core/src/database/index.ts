@@ -7,17 +7,25 @@ export {
   SqliteDatabaseError,
   applyMigrations,
   applySqliteSchema,
-  createSqliteDatabase,
 } from "./sqlite";
+export {
+  buildMigrationChain,
+  findMaxMigrationVersion,
+} from "./migrations";
+export {
+  createBackup,
+  pruneBackups,
+  restoreBackup,
+} from "./backup";
 export type {
-  SqliteBackupFilesystem,
   SqliteBackupContext,
+  SqliteBackupFilesystem,
   SqliteConnection,
   SqliteConnectionPoolConfig,
   SqliteDatabaseErrorCode,
   SqliteDatabaseOptions,
-  SqliteMigration,
   SqliteDriver,
+  SqliteMigration,
   SqliteOpenOptions,
   SqliteSchemaDefinition,
 } from "./sqlite";
