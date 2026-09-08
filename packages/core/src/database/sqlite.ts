@@ -1,9 +1,32 @@
+import type { SqliteBackupContext } from "./backup";
+import type { SqliteMigration } from "./migrations";
+
+import { buildMigrationChain, findMaxMigrationVersion } from "./migrations";
+import { createBackup, pruneBackups, restoreBackup } from "./backup";
+
+// Re-export types from sibling modules so the public API in index.ts can
+// collect everything from a single import surface.
+export type { SqliteBackupContext, SqliteBackupFilesystem } from "./backup";
+export type { SqliteMigration } from "./migrations";
+
 export interface SqliteOpenOptions {
   readonly name: string;
 }
 
 export interface SqliteConnection {
   execute(sql: string, params?: ReadonlyArray<unknown>): Promise<void>;
+  /**
+   * Executes a scalar-returning statement and returns the first column of the
+   * first row as a primitive value. Used by the migration runner for
+   * `PRAGMA user_version` reads.
+   */
+  queryScalar(sql: string, params?: ReadonlyArray<unknown>): Promise<unknown>;
+  /**
+   * Returns the absolute filesystem path to the underlying database file.
+   * Required for backup rotation and `reset()`. Platform drivers
+   * (`expo-sqlite`, `rusqlite`) must implement this.
+   */
+  filePath(): string;
   close(): Promise<void>;
 }
 
@@ -25,7 +48,8 @@ export type SqliteDatabaseErrorCode =
   | "open_failed"
   | "schema_failed"
   | "operation_failed"
-  | "close_failed";
+  | "close_failed"
+  | "migration_failed";
 
 export class SqliteDatabaseError extends Error {
   readonly code: SqliteDatabaseErrorCode;
@@ -45,6 +69,14 @@ export interface SqliteDatabaseOptions {
   readonly schema?: SqliteSchemaDefinition;
   readonly pool?: SqliteConnectionPoolConfig;
   readonly onError?: (error: SqliteDatabaseError) => void;
+  readonly migrations?: ReadonlyArray<SqliteMigration>;
+  readonly backup?: SqliteBackupContext;
+  /**
+   * Whether to run migrations automatically during initialize().
+   * Set to true to enable automatic migration execution.
+   * Default: false for safety—migrations must be explicitly triggered.
+   */
+  readonly runMigrations?: boolean;
 }
 
 export const SQLITE_DEFAULT_POOL: SqliteConnectionPoolConfig = {
@@ -107,6 +139,9 @@ export const SQLITE_DEFAULT_SCHEMA: SqliteSchemaDefinition = {
   statements: SQLITE_SCHEMA_STATEMENTS,
 };
 
+/** Baseline schema version stamped after the default schema is applied. */
+export const SQLITE_BASELINE_VERSION = 1;
+
 export class SqliteDatabase {
   readonly pool: SqliteConnectionPoolConfig;
 
@@ -114,6 +149,10 @@ export class SqliteDatabase {
   private readonly openOptions: SqliteOpenOptions;
   private readonly schema: SqliteSchemaDefinition;
   private readonly onError?: (error: SqliteDatabaseError) => void;
+  private readonly migrations: ReadonlyArray<SqliteMigration>;
+  private readonly backup: SqliteBackupContext | undefined;
+  private readonly runMigrations: boolean;
+  private readonly deleteFile: (path: string) => Promise<void>;
   private connection: SqliteConnection | null = null;
   private initializePromise: Promise<void> | null = null;
   private closePromise: Promise<void> | null = null;
@@ -124,6 +163,17 @@ export class SqliteDatabase {
     this.schema = options.schema ?? SQLITE_DEFAULT_SCHEMA;
     this.pool = options.pool ?? SQLITE_DEFAULT_POOL;
     this.onError = options.onError;
+    this.migrations = options.migrations ?? [];
+    this.backup = options.backup;
+    this.runMigrations = options.runMigrations ?? false;
+    // When a backup context is configured, use its filesystem for reset()
+    // file deletion (matches the production environment).
+    this.deleteFile = async (path: string) => {
+      if (!this.backup) {
+        throw new Error("Backup context required for file deletion");
+      }
+      return this.backup.filesystem.deleteFile(path);
+    };
   }
 
   get isInitialized(): boolean {
@@ -162,6 +212,26 @@ export class SqliteDatabase {
     }
   }
 
+  async reset(): Promise<void> {
+    if (!this.connection) {
+      throw this.fail(
+        "not_initialized",
+        "SQLite database is not initialized. Call initialize() first.",
+      );
+    }
+    if (!this.backup) {
+      throw this.fail(
+        "operation_failed",
+        "SQLite database reset requires a backup filesystem to be configured for file deletion. Provide a backup context in SqliteDatabaseOptions.",
+      );
+    }
+    const filePath = this.connection.filePath();
+    await this.close();
+    await this.deleteFile(filePath);
+    this.connection = null;
+    await this.initialize();
+  }
+
   async run(sql: string, params?: ReadonlyArray<unknown>): Promise<void> {
     const connection = this.requireConnection();
     try {
@@ -182,20 +252,50 @@ export class SqliteDatabase {
     } catch (error) {
       throw this.fail(
         "open_failed",
-        `Failed to open SQLite database \"${this.openOptions.name}\"`,
+        `Failed to open SQLite database "${this.openOptions.name}"`,
         error,
       );
     }
 
     try {
       await applySqliteSchema(connection, this.schema);
+      const currentVersion = await readUserVersion(connection);
+
+      // Check for version downgrade (rollback deploy)
+      const expectedMaxVersion = findMaxMigrationVersion(
+        this.migrations,
+        SQLITE_BASELINE_VERSION,
+      );
+      if (currentVersion > expectedMaxVersion) {
+        throw new SqliteDatabaseError(
+          "migration_failed",
+          `Schema downgrade detected: database is at version ${currentVersion} but code expects max ${expectedMaxVersion}. Rollback deploys are not supported.`,
+        );
+      }
+
+      if (currentVersion < SQLITE_BASELINE_VERSION) {
+        await writeUserVersion(connection, SQLITE_BASELINE_VERSION);
+      }
+
+      if (this.runMigrations && this.migrations.length > 0) {
+        await applyMigrations(
+          connection,
+          this.migrations,
+          this.backup,
+          this.onError,
+        );
+      }
     } catch (error) {
       await safeClose(connection);
       if (error instanceof SqliteDatabaseError) {
         this.onError?.(error);
         throw error;
       }
-      throw this.fail("schema_failed", "Failed to initialize SQLite schema", error);
+      throw this.fail(
+        "schema_failed",
+        "Failed to initialize SQLite schema",
+        error,
+      );
     }
 
     this.connection = connection;
@@ -219,7 +319,11 @@ export class SqliteDatabase {
       await connection.close();
     } catch (error) {
       // Retain connection reference on close failure so callers can retry
-      throw this.fail("close_failed", "Failed to close SQLite connection", error);
+      throw this.fail(
+        "close_failed",
+        "Failed to close SQLite connection",
+        error,
+      );
     }
 
     this.connection = null;
@@ -244,10 +348,6 @@ export class SqliteDatabase {
     this.onError?.(error);
     return error;
   }
-}
-
-export function createSqliteDatabase(options: SqliteDatabaseOptions): SqliteDatabase {
-  return new SqliteDatabase(options);
 }
 
 export async function applySqliteSchema(
@@ -279,6 +379,160 @@ export async function applySqliteSchema(
       error,
     );
   }
+}
+
+/**
+ * Applies any pending migrations in order. Migrations are selected where
+ * `fromVersion === currentVersion`. The first migration in the batch triggers
+ * a pre-flight backup (when a backup context is provided); after the batch
+ * completes, old backups are pruned to the configured retention count.
+ *
+ * Failures roll back the active transaction, restore from the most recent
+ * backup if available, and throw a `migration_failed` error.
+ */
+export async function applyMigrations(
+  connection: SqliteConnection,
+  migrations: ReadonlyArray<SqliteMigration>,
+  backup?: SqliteBackupContext,
+  onError?: (error: SqliteDatabaseError) => void,
+): Promise<void> {
+  const chain = buildMigrationChain(
+    migrations,
+    await readUserVersion(connection),
+  );
+  if (chain.length === 0) {
+    return;
+  }
+
+  const retain = backup?.retain ?? 3;
+  const filePath = connection.filePath();
+  let backupPath: string | null = null;
+
+  if (backup) {
+    backupPath = await createBackup(backup.filesystem, filePath);
+  }
+
+  try {
+    await connection.execute("BEGIN IMMEDIATE");
+    for (const migration of chain) {
+      for (const statement of migration.statements) {
+        await connection.execute(statement);
+      }
+    }
+    // Write version once at the end with final target version
+    const finalMigration = chain[chain.length - 1];
+    if (finalMigration) {
+      await writeUserVersion(connection, finalMigration.toVersion);
+    }
+    await connection.execute("COMMIT");
+  } catch (error) {
+    await handleMigrationFailure(
+      error,
+      backupPath,
+      backup,
+      filePath,
+      connection,
+    );
+  }
+
+  if (backup) {
+    try {
+      await pruneBackups(backup.filesystem, filePath, retain);
+    } catch (pruneError) {
+      // Backup pruning is best-effort; migration already succeeded
+      // But report the failure via onError so operators know pruning is failing
+      onError?.(
+        new SqliteDatabaseError(
+          "operation_failed",
+          `Backup pruning failed: ${toErrorMessage(pruneError)}`,
+          pruneError,
+        ),
+      );
+    }
+  }
+}
+
+async function handleMigrationFailure(
+  error: unknown,
+  backupPath: string | null,
+  backup: SqliteBackupContext | undefined,
+  filePath: string,
+  connection: SqliteConnection,
+): Promise<never> {
+  try {
+    await connection.execute("ROLLBACK");
+  } catch {
+    // Ignore rollback failures; the original migration error is what matters.
+  }
+
+  // Close connection before attempting filesystem restore
+  try {
+    await connection.close();
+  } catch {
+    // Ignore close failures during error recovery
+  }
+
+  if (backupPath !== null && backup) {
+    try {
+      await restoreBackup(backup.filesystem, backupPath, filePath);
+      throw new SqliteDatabaseError(
+        "migration_failed",
+        `SQLite migration failed. Database restored from backup: ${toErrorMessage(error)}`,
+        error,
+      );
+    } catch (restoreError) {
+      if (
+        restoreError instanceof SqliteDatabaseError &&
+        restoreError.code === "migration_failed"
+      ) {
+        throw restoreError;
+      }
+      throw new SqliteDatabaseError(
+        "migration_failed",
+        `SQLite migration failed and backup restore also failed: ${toErrorMessage(restoreError)}`,
+        error,
+      );
+    }
+  }
+
+  throw new SqliteDatabaseError(
+    "migration_failed",
+    `SQLite migration failed: ${toErrorMessage(error)}`,
+    error,
+  );
+}
+
+async function readUserVersion(connection: SqliteConnection): Promise<number> {
+  const result = await connection.queryScalar("PRAGMA user_version");
+  if (typeof result === "number" && Number.isFinite(result)) {
+    return Math.max(0, Math.floor(result));
+  }
+  if (typeof result === "string") {
+    const parsed = Number.parseInt(result, 10);
+    if (Number.isFinite(parsed)) {
+      return Math.max(0, Math.floor(parsed));
+    }
+  }
+  if (typeof result === "bigint") {
+    return Number(result);
+  }
+  return 0;
+}
+
+async function writeUserVersion(
+  connection: SqliteConnection,
+  version: number,
+): Promise<void> {
+  const safeVersion = Math.max(0, Math.floor(version));
+  // SQLite user_version is a 32-bit signed integer (max 2147483647)
+  if (
+    !Number.isInteger(safeVersion) ||
+    safeVersion < 0 ||
+    safeVersion > 2147483647
+  ) {
+    throw new Error(`Invalid version: ${version} (must be 0-2147483647)`);
+  }
+  await connection.execute(`PRAGMA user_version = ${safeVersion}`);
 }
 
 async function safeClose(connection: SqliteConnection): Promise<void> {

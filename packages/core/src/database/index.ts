@@ -1,18 +1,31 @@
 export {
+  SQLITE_BASELINE_VERSION,
   SQLITE_DEFAULT_POOL,
   SQLITE_DEFAULT_SCHEMA,
   SQLITE_SCHEMA_STATEMENTS,
   SqliteDatabase,
   SqliteDatabaseError,
+  applyMigrations,
   applySqliteSchema,
-  createSqliteDatabase,
 } from "./sqlite";
+export {
+  buildMigrationChain,
+  findMaxMigrationVersion,
+} from "./migrations";
+export {
+  createBackup,
+  pruneBackups,
+  restoreBackup,
+} from "./backup";
 export type {
+  SqliteBackupContext,
+  SqliteBackupFilesystem,
+  SqliteConnection,
   SqliteConnectionPoolConfig,
   SqliteDatabaseErrorCode,
-  SqliteSchemaDefinition,
   SqliteDatabaseOptions,
-  SqliteOpenOptions,
-  SqliteConnection,
   SqliteDriver,
+  SqliteMigration,
+  SqliteOpenOptions,
+  SqliteSchemaDefinition,
 } from "./sqlite";
