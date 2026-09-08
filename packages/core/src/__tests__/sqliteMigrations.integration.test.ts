@@ -106,7 +106,10 @@ class InMemoryBackupFilesystem implements SqliteBackupFilesystem {
   async copyFile(source: string, destination: string): Promise<void> {
     this.copyLog.push({ source, destination });
     if (this.files.has(source)) {
-      this.files.set(destination, this.files.get(source)!);
+      const sourceContent = this.files.get(source);
+      if (sourceContent !== undefined) {
+        this.files.set(destination, sourceContent);
+      }
     }
   }
 
@@ -275,15 +278,14 @@ describe("Migration integration — full lifecycle", () => {
 
     // File was deleted by the backup filesystem.
     expect(filesystem.deleteLog).toContain("/tmp/pairsync.db");
+    // Verify the file no longer exists in the filesystem
+    expect(filesystem.files.has("/tmp/pairsync.db")).toBe(false);
     // After reset, the database is re-initialized and migrations run again.
     expect(connection.getUserVersion()).toBe(3);
     expect(db.isInitialized).toBe(true);
   });
 
-  it("reset() is a no-op for deletion when no backup context is configured", async () => {
-    // Per the implementation contract, reset() uses the backup filesystem
-    // when available. Without one, the file is left in place (the caller
-    // is responsible for cleanup at a higher level).
+  it("reset() requires backup context for file deletion", async () => {
     const db = new SqliteDatabase({
       driver,
       open: { name: "pairsync.db" },
@@ -295,9 +297,10 @@ describe("Migration integration — full lifecycle", () => {
     connection.reopen();
     connection.setUserVersion(3);
 
-    // Should not throw even though no backup is configured.
-    await expect(db.reset()).resolves.toBeUndefined();
-    expect(db.isInitialized).toBe(true);
+    // Should throw when no backup context is configured.
+    await expect(db.reset()).rejects.toMatchObject({
+      code: "operation_failed",
+    });
   });
 
   it("emits migration_failed via onError and keeps the database closed on failure", async () => {
@@ -366,5 +369,11 @@ describe("Migration integration — full lifecycle", () => {
       c.destination.includes(".backup-"),
     );
     expect(backupEntry).toBeDefined();
+    
+    // Verify restore was called by checking that a copy from backup to original occurred
+    const restoreEntry = filesystem.copyLog.find((c) => 
+      c.source.includes(".backup-") && c.destination === "/tmp/pairsync.db"
+    );
+    expect(restoreEntry).toBeDefined();
   });
 });

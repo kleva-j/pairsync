@@ -299,6 +299,15 @@ describe("SqliteDatabase", () => {
     expect(errors.at(-1)?.code).toBe("not_initialized");
   });
 
+  it("reset() throws when no backup context is configured", async () => {
+    const { database } = createSubject();
+    await database.initialize();
+
+    await expect(database.reset()).rejects.toMatchObject({
+      code: "operation_failed",
+    });
+  });
+
   describe("migrations", () => {
     it("applies single migration when database is at starting version", async () => {
       const connection = new FakeSqliteConnection();
@@ -454,6 +463,59 @@ describe("SqliteDatabase", () => {
       expect(connection.executed.filter((sql) => sql === "CREATE TABLE test (id INTEGER)")).toHaveLength(1);
     });
 
+    it("rejects duplicate fromVersion in migrations", async () => {
+      const connection = new FakeSqliteConnection();
+      const migrations: SqliteMigration[] = [
+        {
+          fromVersion: 1,
+          toVersion: 2,
+          statements: ["CREATE TABLE test1 (id INTEGER)"],
+          description: "test migration 1",
+        },
+        {
+          fromVersion: 1,
+          toVersion: 3,
+          statements: ["CREATE TABLE test2 (id INTEGER)"],
+          description: "test migration 2",
+        },
+      ];
+      const driver: SqliteDriver = {
+        open: async () => connection,
+      };
+
+      const database = new SqliteDatabase({
+        driver,
+        open: { name: "pairsync.db" },
+        migrations,
+        runMigrations: true,
+      });
+
+      connection.setUserVersion(1);
+      await expect(database.initialize()).rejects.toMatchObject({
+        code: "migration_failed",
+      });
+    });
+
+    it("validates downgrade when migrations array is empty", async () => {
+      const connection = new FakeSqliteConnection();
+      const driver: SqliteDriver = {
+        open: async () => connection,
+      };
+
+      const database = new SqliteDatabase({
+        driver,
+        open: { name: "pairsync.db" },
+        migrations: [],
+        runMigrations: true,
+      });
+
+      // Database is at version 2, but code only supports baseline version 1
+      connection.setUserVersion(2);
+      await expect(database.initialize()).rejects.toMatchObject({
+        code: "migration_failed",
+      });
+    });
+
     it("prunes backups to retain only last 3", async () => {
       const connection = new FakeSqliteConnection();
       const migration: SqliteMigration = {
@@ -469,10 +531,10 @@ describe("SqliteDatabase", () => {
           deletedFiles.push(path);
         },
         listBackups: async () => [
-          "/tmp/pairsync.db.backup-1000.db",
-          "/tmp/pairsync.db.backup-2000.db",
-          "/tmp/pairsync.db.backup-3000.db",
-          "/tmp/pairsync.db.backup-4000.db",
+          "pairsync.db.backup-1000.db",
+          "pairsync.db.backup-2000.db",
+          "pairsync.db.backup-3000.db",
+          "pairsync.db.backup-4000.db",
         ],
       };
       const driver: SqliteDriver = {

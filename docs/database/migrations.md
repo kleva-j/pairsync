@@ -13,7 +13,7 @@ This guide covers the schema migration system in `packages/core/src/database/sql
 
 ```ts
 import {
-  createSqliteDatabase,
+  SqliteDatabase,
   type SqliteMigration,
   type SqliteDriver,
 } from "@pairsync/core";
@@ -37,7 +37,7 @@ const migrations: ReadonlyArray<SqliteMigration> = [
 
 const driver: SqliteDriver = /* platform-specific implementation */;
 
-const database = createSqliteDatabase({
+const database = new SqliteDatabase({
   driver,
   open: { name: "pairsync.db" },
   migrations,
@@ -132,7 +132,7 @@ Run a migration chain against an open connection. Throws `SqliteDatabaseError` w
 | `schema_failed`    | Baseline schema application failed                   |
 | `operation_failed` | A `run()` statement failed                           |
 | `close_failed`     | Connection close threw                               |
-| `migration_failed` | Migration chain failed, rolled back, backup restored |
+| `migration_failed` | Migration chain failed, rolled back, backup restored (if configured) |
 
 ---
 
@@ -142,7 +142,7 @@ Run a migration chain against an open connection. Throws `SqliteDatabaseError` w
 
 - **One logical change per migration** — e.g. adding a column, creating a table, adding an index.
 - **Forward-only** — Never edit a migration that has shipped. Add a new migration to reverse its effect.
-- **Use `IF NOT EXISTS` for idempotency** — Defensive against partial state, but the runner already wraps everything in a transaction.
+- **Use `IF NOT EXISTS` for idempotency** — Defensive against partial state, but the runner already wraps everything in a transaction. Note: `ALTER TABLE ... ADD COLUMN` does not support `IF NOT EXISTS`; handle columns that may already exist with appropriate checks.
 - **Keep migrations small and fast** — The chain holds a write lock for the full duration.
 
 ### Example: Adding a Column
@@ -283,7 +283,9 @@ const filesystem: SqliteBackupFilesystem = {
   },
   async listBackups(directory, baseName) {
     const entries = await FileSystem.readDirectoryAsync(directory);
-    return entries.filter((name) => name.startsWith(`${baseName}.backup-`));
+    return entries
+      .filter((name) => name.startsWith(`${baseName}.backup-`))
+      .map((name) => `${directory}/${name}`);
   },
 };
 ```
@@ -297,12 +299,13 @@ Retention defaults to 3 backups. The runner prunes oldest-first after each succe
 ### Rolling Out a New Migration
 
 1. Add the migration to the migrations array in your app's database setup.
-2. Ship the new build. Migrations run automatically on first `initialize()`.
-3. Monitor the `onError` callback for `migration_failed` events.
+2. Ensure `runMigrations: true` is set in your SqliteDatabaseOptions (or already true).
+3. Ship the new build. Migrations run automatically on first `initialize()`.
+4. Monitor the `onError` callback for `migration_failed` events.
 
 ### Coordinating Across Instances
 
-The migration runner uses `BEGIN IMMEDIATE`, which acquires a reserved lock. With multiple instances starting simultaneously, all but one will block briefly. If you have hundreds of instances cold-starting at once, consider:
+The migration runner uses `BEGIN IMMEDIATE`, which acquires a reserved lock. With multiple instances starting simultaneously, all but one will block briefly or fail with `SQLITE_BUSY`. If you have hundreds of instances cold-starting at once, consider:
 
 - Running migrations on a single designated instance (e.g. a leader-elected pod).
 - Using a feature flag to gate migration execution per instance.
@@ -320,7 +323,7 @@ The version downgrade guard throws `migration_failed` if the database version ex
 
 ### Testing Migrations
 
-Unit tests use the `FakeSqliteConnection` and `CountingFilesystem` to validate migration logic without a real SQLite instance. Integration tests should run against a real `expo-sqlite` or `better-sqlite3` driver in CI.
+Unit tests use the `FakeSqliteConnection` and in-memory filesystem implementations to validate migration logic without a real SQLite instance. Integration tests should run against a real `expo-sqlite` or `better-sqlite3` driver in CI to validate actual SQLite transaction and filesystem behavior.
 
 ---
 
@@ -330,7 +333,7 @@ Unit tests use the `FakeSqliteConnection` and `CountingFilesystem` to validate m
 
 - **Database version higher than code expects** — A rollback deploy. Either forward-fix or restore from backup.
 - **Cyclic migration detected** — Two migrations form a loop (e.g. 1→2 and 2→1). Fix the migration definitions.
-- **Bad SQL in a statement** — The transaction rolled back, the backup was restored. Fix the SQL and re-ship.
+- **Bad SQL in a statement** — The transaction rolled back, the backup was restored (if configured). Fix the SQL and re-ship.
 
 ### Backups filling the disk
 

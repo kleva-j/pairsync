@@ -18,6 +18,19 @@ export function buildMigrationChain(
   const sortedMigrations = migrations
     .slice()
     .sort((a, b) => a.fromVersion - b.fromVersion);
+  
+  // Validate unique fromVersion values
+  const fromVersions = new Set<number>();
+  for (const migration of sortedMigrations) {
+    if (fromVersions.has(migration.fromVersion)) {
+      throw new SqliteDatabaseError(
+        "migration_failed",
+        `Duplicate fromVersion detected: version ${migration.fromVersion} appears in multiple migrations`,
+      );
+    }
+    fromVersions.add(migration.fromVersion);
+  }
+  
   const chain: SqliteMigration[] = [];
   const visited = new Set<number>();
   visited.add(startingVersion);

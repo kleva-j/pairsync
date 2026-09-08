@@ -40,7 +40,11 @@ export async function pruneBackups(
   const directory = getDirectory(filePath);
   const baseName = getBaseName(filePath);
   const backups = await filesystem.listBackups(directory, baseName);
-  const sorted = backups.slice().sort();
+  // Ensure backups are full paths for deleteFile
+  const fullPaths = backups.map((backup) => 
+    directory ? `${directory}/${backup}` : backup
+  );
+  const sorted = fullPaths.slice().sort();
   const excess = sorted.length - retain;
   for (let i = 0; i < excess; i += 1) {
     const target = sorted[i];

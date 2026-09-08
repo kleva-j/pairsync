@@ -167,11 +167,13 @@ export class SqliteDatabase {
     this.backup = options.backup;
     this.runMigrations = options.runMigrations ?? false;
     // When a backup context is configured, use its filesystem for reset()
-    // file deletion (matches the production environment). Otherwise default
-    // to a no-op so reset() can still satisfy the contract without a
-    // filesystem dependency; the database file simply isn't removed.
-    this.deleteFile = (path: string) =>
-      this.backup?.filesystem.deleteFile(path) ?? Promise.resolve();
+    // file deletion (matches the production environment).
+    this.deleteFile = async (path: string) => {
+      if (!this.backup) {
+        throw new Error("Backup context required for file deletion");
+      }
+      return this.backup.filesystem.deleteFile(path);
+    };
   }
 
   get isInitialized(): boolean {
@@ -217,6 +219,12 @@ export class SqliteDatabase {
         "SQLite database is not initialized. Call initialize() first.",
       );
     }
+    if (!this.backup) {
+      throw this.fail(
+        "operation_failed",
+        "SQLite database reset requires a backup filesystem to be configured for file deletion. Provide a backup context in SqliteDatabaseOptions.",
+      );
+    }
     const filePath = this.connection.filePath();
     await this.close();
     await this.deleteFile(filePath);
@@ -254,17 +262,15 @@ export class SqliteDatabase {
       const currentVersion = await readUserVersion(connection);
 
       // Check for version downgrade (rollback deploy)
-      if (this.migrations.length > 0) {
-        const expectedMaxVersion = findMaxMigrationVersion(
-          this.migrations,
-          SQLITE_BASELINE_VERSION,
+      const expectedMaxVersion = findMaxMigrationVersion(
+        this.migrations,
+        SQLITE_BASELINE_VERSION,
+      );
+      if (currentVersion > expectedMaxVersion) {
+        throw new SqliteDatabaseError(
+          "migration_failed",
+          `Schema downgrade detected: database is at version ${currentVersion} but code expects max ${expectedMaxVersion}. Rollback deploys are not supported.`,
         );
-        if (currentVersion > expectedMaxVersion) {
-          throw new SqliteDatabaseError(
-            "migration_failed",
-            `Schema downgrade detected: database is at version ${currentVersion} but code expects max ${expectedMaxVersion}. Rollback deploys are not supported.`,
-          );
-        }
       }
 
       if (currentVersion < SQLITE_BASELINE_VERSION) {
@@ -414,7 +420,10 @@ export async function applyMigrations(
       }
     }
     // Write version once at the end with final target version
-    await writeUserVersion(connection, chain[chain.length - 1]!.toVersion);
+    const finalMigration = chain[chain.length - 1];
+    if (finalMigration) {
+      await writeUserVersion(connection, finalMigration.toVersion);
+    }
     await connection.execute("COMMIT");
   } catch (error) {
     await handleMigrationFailure(
