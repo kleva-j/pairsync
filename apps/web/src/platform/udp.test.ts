@@ -5,7 +5,7 @@ import { fromByteArray } from "base64-js";
 import type { MulticastSocket } from "@pairsync/core";
 import { MULTICAST_GROUPS } from "@pairsync/core";
 
-import { TauriMulticastSocket } from "./udp";
+import { TauriMulticastSocket, detectTauriLocalInterfaces } from "./udp";
 import {
   registeredListeners,
   emitTauriEvent,
@@ -24,6 +24,29 @@ beforeEach(() => {
 });
 
 describe("TauriMulticastSocket", () => {
+  it("detects local interfaces through the udp plugin", async () => {
+    vi.mocked(invoke).mockResolvedValue([
+      {
+        name: "en0",
+        type: "Ethernet",
+        ipv4: ["192.168.1.7"],
+        ipv6: [],
+        preferred: true,
+      },
+    ]);
+
+    await expect(detectTauriLocalInterfaces()).resolves.toEqual([
+      {
+        name: "en0",
+        type: "Ethernet",
+        ipv4: ["192.168.1.7"],
+        ipv6: [],
+        preferred: true,
+      },
+    ]);
+    expect(invoke).toHaveBeenCalledWith("plugin:pairsync-udp|local_interfaces");
+  });
+
   it("binds the discovery port through the udp plugin", async () => {
     const socket = new TauriMulticastSocket();
     await socket.bind(DISCOVERY_PORT);

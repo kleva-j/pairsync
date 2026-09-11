@@ -15,6 +15,7 @@ use std::{
     time::Duration,
 };
 
+use if_addrs::{get_if_addrs, IfAddr};
 use pairsync_common::base64::{decode_b64, encode_b64};
 use serde::Serialize;
 use socket2::{Domain, Protocol, Socket, Type};
@@ -42,6 +43,16 @@ struct MessageEvent {
     remote: RemoteInfo,
 }
 
+#[derive(Clone, Serialize)]
+struct LocalInterface {
+    name: String,
+    #[serde(rename = "type")]
+    kind: &'static str,
+    ipv4: Vec<String>,
+    ipv6: Vec<String>,
+    preferred: bool,
+}
+
 struct SocketEntry {
     v4: Option<Arc<UdpSocket>>,
     v6: Option<Arc<UdpSocket>>,
@@ -62,9 +73,47 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             join_group,
             leave_group,
             send,
-            close
+            close,
+            local_interfaces
         ])
         .build()
+}
+
+fn classify_interface(name: &str) -> &'static str {
+    let lower = name.to_ascii_lowercase();
+    if lower.starts_with("wl") || lower.starts_with("wi") || lower == "airport" {
+        "Wi-Fi"
+    } else if lower.starts_with("en") || lower.starts_with("eth") {
+        "Ethernet"
+    } else if lower.starts_with("wwan") || lower.starts_with("cell") {
+        "Cellular"
+    } else {
+        "Other"
+    }
+}
+
+#[tauri::command]
+fn local_interfaces() -> Result<Vec<LocalInterface>, String> {
+    let mut by_name: HashMap<String, LocalInterface> = HashMap::new();
+    for iface in get_if_addrs().map_err(|err| format!("failed to enumerate interfaces: {err}"))? {
+        let entry = by_name.entry(iface.name.clone()).or_insert_with(|| LocalInterface {
+            name: iface.name.clone(),
+            kind: classify_interface(&iface.name),
+            ipv4: Vec::new(),
+            ipv6: Vec::new(),
+            preferred: false,
+        });
+        match iface.addr {
+            IfAddr::V4(v4) => entry.ipv4.push(v4.ip.to_string()),
+            IfAddr::V6(v6) => entry.ipv6.push(v6.ip.to_string()),
+        }
+    }
+    let mut interfaces: Vec<LocalInterface> = by_name.into_values().collect();
+    interfaces.sort_by(|a, b| a.name.cmp(&b.name));
+    if let Some(first) = interfaces.iter_mut().find(|iface| !iface.ipv4.is_empty() || !iface.ipv6.is_empty()) {
+        first.preferred = true;
+    }
+    Ok(interfaces)
 }
 
 fn configure(sock: UdpSocket) -> Arc<UdpSocket> {

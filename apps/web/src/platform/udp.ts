@@ -1,6 +1,7 @@
-import { invoke } from "@tauri-apps/api/core";
+import type { DetectedInterface, MulticastSocket } from "@pairsync/core";
+
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { MulticastSocket } from "@pairsync/core";
+import { invoke } from "@tauri-apps/api/core";
 
 import { fromByteArray, toByteArray } from "base64-js";
 
@@ -18,23 +19,28 @@ export class TauriMulticastSocket implements MulticastSocket {
     remote: { address: string; port: number },
   ) => void;
   private unlisten?: UnlistenFn;
-  private bound = false;
   private closed = false;
 
   async bind(port: number, address?: string): Promise<void> {
     if (this.closed) {
-      this.closed = false;
+      throw new Error("UDP socket is closed");
     }
-    await invoke("plugin:pairsync-udp|bind", { socketId: this.socketId, port, address });
+    await invoke("plugin:pairsync-udp|bind", {
+      socketId: this.socketId,
+      port,
+      address: address ?? undefined,
+    });
     const unlisten = await listen<{
       socketId: number;
       data: string;
       remote: { address: string; port: number };
     }>("pairsync-udp:message", (event) => {
       if (event.payload.socketId !== this.socketId) return;
-      this.messageHandler?.(toByteArray(event.payload.data), event.payload.remote);
+      this.messageHandler?.(
+        toByteArray(event.payload.data),
+        event.payload.remote,
+      );
     });
-    this.bound = true;
     this.unlisten = unlisten;
   }
 
@@ -76,9 +82,14 @@ export class TauriMulticastSocket implements MulticastSocket {
     try {
       await invoke("plugin:pairsync-udp|close", { socketId: this.socketId });
     } finally {
-      this.bound = false;
       this.unlisten?.();
       this.unlisten = undefined;
     }
   }
+}
+
+export async function detectTauriLocalInterfaces(): Promise<
+  DetectedInterface[]
+> {
+  return invoke<DetectedInterface[]>("plugin:pairsync-udp|local_interfaces");
 }

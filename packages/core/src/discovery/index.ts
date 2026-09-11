@@ -16,10 +16,29 @@ export type { MdnsService, MdnsDiscoveryOptions } from "./mdns";
 export { DeviceManager } from "./deviceManager";
 export type { DeviceManagerOptions } from "./deviceManager";
 
+export {
+  ManualPeerRegistry,
+  ManualPeerError,
+  defaultManualPeerScheduler,
+} from "./manual";
+export type {
+  ManualPeerRegistryOptions,
+  ManualPeerErrorCode,
+  ManualPeerScheduler,
+  ManualPeerInput,
+} from "./manual";
+
+export { createDiscoveryRuntime } from "./runtime";
+export type {
+  DiscoveryRuntimeErrorSource,
+  DiscoveryRuntimeOptions,
+  DiscoveryRuntime,
+} from "./runtime";
+
 export { ConnectionInitiator, ConnectionError } from "./connection";
 export type {
-  TcpSocket,
-  ConnectionErrorCode,
-  EstablishedConnection,
   ConnectionInitiatorOptions,
+  EstablishedConnection,
+  ConnectionErrorCode,
+  TcpSocket,
 } from "./connection";

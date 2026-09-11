@@ -8,4 +8,5 @@ permissions = [
   "allow-leave-group",
   "allow-send",
   "allow-close",
+  "allow-local-interfaces",
 ]
