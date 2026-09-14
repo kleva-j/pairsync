@@ -57,6 +57,7 @@ coverage
 tmp
 temp
 .freebuff
+.scratch
 
 # pnpm package store (explicit; also in pnpm default ignore)
 .pnpm-store
