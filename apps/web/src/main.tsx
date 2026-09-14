@@ -1,20 +1,29 @@
-import React, { useEffect } from "react";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import {
   filterInterfacesForAdvertisement,
-  type Device,
+  isDesktop,
   type DiscoveryRuntime,
   type HeartbeatPayload,
   type NetworkInterface,
   type Platform,
+  type Device,
 } from "@pairsync/core";
 import ReactDOM from "react-dom/client";
 
 import Loader from "./components/loader";
 import { routeTree } from "./routeTree.gen";
 import { detectTauriLocalInterfaces } from "./platform";
+import { getDesktopDeviceId } from "./deviceId";
 
 const DEVICE_ALIAS_STORAGE_KEY = "pairsync.deviceAlias";
+
+// Safety-net poll interval (ms) in case no browser network-state event fires
+// for an IP-only change (DHCP renewal, VPN toggle, captive-portal handoff).
+// Primary refresh is event-driven: `online`, `offline`, and `visibilitychange`
+// listeners installed after the runtime starts. A full OS-native Tauri plugin
+// (macOS SystemConfiguration, Windows NotifyRouteChange2) is a Phase-3
+// follow-up.
+const INTERFACE_REFRESH_SAFETY_INTERVAL_MS = 5 * 60_000;
 
 function getDesktopPairSyncPlatform(userAgent = navigator.userAgent): Platform {
   if (/macintosh|mac os x/i.test(userAgent)) return "macos";
@@ -24,7 +33,9 @@ function getDesktopPairSyncPlatform(userAgent = navigator.userAgent): Platform {
 }
 
 function getDesktopDeviceAlias(): string {
-  return localStorage.getItem(DEVICE_ALIAS_STORAGE_KEY)?.trim() || "PairSync Desktop";
+  return (
+    localStorage.getItem(DEVICE_ALIAS_STORAGE_KEY)?.trim() || "PairSync Desktop"
+  );
 }
 
 const router = createRouter({
@@ -44,9 +55,10 @@ declare module "@tanstack/react-router" {
 // Wire platform adapters and start discovery only when running under Tauri
 function startDesktopDiscoveryIfTauri() {
   try {
-    // Tauri injects a global __TAURI__ object; guard on it so web bundles/tests
+    // Use the core isDesktop() utility which correctly detects Tauri v2
+    // (checks both __TAURI_INTERNALS__ and __TAURI__) so web bundles/tests
     // don't attempt to import Tauri-only modules.
-    if (typeof window === "undefined" || (window as any).__TAURI__ == null) {
+    if (!isDesktop()) {
       return;
     }
 
@@ -57,10 +69,13 @@ function startDesktopDiscoveryIfTauri() {
 
         const adapter = platformMod.createTauriPlatformNetwork();
 
-        const deviceId = `dev-${Math.floor(Math.random() * 1e9)}`;
+        const deviceId = getDesktopDeviceId();
+        // Use a ref-like pattern with a mutable variable for interfaces
+        // so heartbeat can always read the latest value
         let interfaces: NetworkInterface[] = filterInterfacesForAdvertisement(
-          await detectTauriLocalInterfaces(),
+          await detectTauriLocalInterfaces()
         );
+
         const heartbeat = (): HeartbeatPayload => ({
           device_id: deviceId,
           alias: getDesktopDeviceAlias(),
@@ -73,20 +88,64 @@ function startDesktopDiscoveryIfTauri() {
           adapter,
           heartbeat,
           deviceManager: {
-            onDeviceAdded: (device: Device) => console.log("[discovery] device added", device),
-            onDeviceUpdated: (device: Device) => console.log("[discovery] device updated", device),
-            onDeviceRemoved: (id: string) => console.log("[discovery] device removed", id),
+            onDeviceAdded: (device: Device) =>
+              console.log("[discovery] device added", device),
+            onDeviceUpdated: (device: Device) =>
+              console.log("[discovery] device updated", device),
+            onDeviceRemoved: (id: string) =>
+              console.log("[discovery] device removed", id),
           },
-          onError: (source, err) => console.warn(`[discovery] ${source} error`, err),
+          onError: (source, err) =>
+            console.warn(`[discovery] ${source} error`, err),
         });
 
         await runtime.start();
-        interfaces = filterInterfacesForAdvertisement(await detectTauriLocalInterfaces());
+
+        const refreshInterfaces = async () => {
+          try {
+            interfaces = filterInterfacesForAdvertisement(
+              await detectTauriLocalInterfaces()
+            );
+            console.log("[discovery] refreshed desktop interfaces");
+          } catch (err) {
+            console.warn("[discovery] failed to refresh interfaces:", err);
+          }
+        };
+
+        // Event-driven refresh: react to browser network state changes and
+        // tab visibility. `visibilitychange` catches the case where the OS
+        // network flipped while the tab was hidden (no `online`/`offline`
+        // event delivered).
+        const onOnline = () => {
+          refreshInterfaces();
+        };
+        const onOffline = () => {
+          refreshInterfaces();
+        };
+        const onVisibility = () => {
+          if (document.visibilityState === "visible") {
+            refreshInterfaces();
+          }
+        };
+        window.addEventListener("online", onOnline);
+        window.addEventListener("offline", onOffline);
+        document.addEventListener("visibilitychange", onVisibility);
+
+        // Safety-net poll for IP-only changes that don't raise a browser
+        // network-state event (DHCP renewal, VPN toggle on the same SSID).
+        const refreshInterval = setInterval(
+          refreshInterfaces,
+          INTERFACE_REFRESH_SAFETY_INTERVAL_MS
+        );
 
         console.log("[discovery] started (desktop)");
 
         // Stop discovery when the window unloads
         window.addEventListener("beforeunload", async () => {
+          clearInterval(refreshInterval);
+          window.removeEventListener("online", onOnline);
+          window.removeEventListener("offline", onOffline);
+          document.removeEventListener("visibilitychange", onVisibility);
           try {
             await runtime.stop();
           } catch {}

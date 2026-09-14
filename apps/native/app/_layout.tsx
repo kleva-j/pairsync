@@ -47,7 +47,7 @@ function getNativeDeviceAlias(): string {
 }
 
 function toPairSyncInterfaceType(
-  type: Network.NetworkStateType | undefined,
+  type: Network.NetworkStateType | undefined
 ): NetworkInterface["type"] {
   switch (type) {
     case Network.NetworkStateType.WIFI:
@@ -60,6 +60,12 @@ function toPairSyncInterfaceType(
       return "Other";
   }
 }
+
+// Safety-net poll interval (ms) in case no `Network.addNetworkStateListener`
+// event fires for an IP-only change (DHCP renewal, VPN toggle on the same
+// SSID, captive-portal handoff). Primary refresh is event-driven via the
+// expo-network listener wired up inside the effect below.
+const INTERFACE_REFRESH_SAFETY_INTERVAL_MS = 5 * 60_000;
 
 async function detectNativeInterfaces(): Promise<NetworkInterface[]> {
   const [state, ipAddress] = await Promise.all([
@@ -92,6 +98,22 @@ export default function Layout() {
 
     let stopped = false;
     let runtime: DiscoveryRuntime | null = null;
+    let refreshTimer: ReturnType<typeof setInterval> | null = null;
+    let networkSubscription: { remove: () => void } | null = null;
+    // Closure variable holds the current interfaces so heartbeat() can
+    // always read the latest value. Scoped to this effect's lifetime; no
+    // ref is needed because there are no re-renders (deps: []).
+    let interfaces: NetworkInterface[] = [];
+
+    const refreshInterfaces = async () => {
+      if (stopped) return;
+      try {
+        interfaces = await detectNativeInterfaces();
+        console.log("[discovery] refreshed native interfaces");
+      } catch (err) {
+        console.warn("[discovery] failed to refresh interfaces:", err);
+      }
+    };
 
     (async () => {
       try {
@@ -101,7 +123,9 @@ export default function Layout() {
         const core = await import("@pairsync/core");
 
         const adapter = platformMod.createReactNativePlatformNetwork();
-        let interfaces = await detectNativeInterfaces();
+
+        // Initial interface detection
+        await refreshInterfaces();
 
         // Build a minimal heartbeat payload provider. Platform and interfaces
         // are intentionally conservative here — apps should provide a richer
@@ -135,12 +159,24 @@ export default function Layout() {
         }
 
         await runtime.start();
-        interfaces = await detectNativeInterfaces();
 
         if (stopped) {
           await runtime.stop();
           return;
         }
+
+        // Event-driven refresh: OS reports a network-state change (SSID
+        // change, cellular <-> Wi-Fi handoff, connection lost/regained).
+        networkSubscription = Network.addNetworkStateListener(() => {
+          refreshInterfaces();
+        });
+
+        // Safety-net poll for IP-only changes that don't fire a network
+        // state event (DHCP renewal, VPN toggle on the same SSID).
+        refreshTimer = setInterval(
+          refreshInterfaces,
+          INTERFACE_REFRESH_SAFETY_INTERVAL_MS
+        );
 
         console.log("[discovery] started (native)");
       } catch (err) {
@@ -151,6 +187,14 @@ export default function Layout() {
     return () => {
       if (stopped) return;
       stopped = true;
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+      if (networkSubscription) {
+        networkSubscription.remove();
+        networkSubscription = null;
+      }
       (async () => {
         try {
           if (runtime) await runtime.stop();

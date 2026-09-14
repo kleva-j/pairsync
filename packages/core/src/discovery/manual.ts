@@ -257,6 +257,12 @@ export class ManualPeerRegistry {
       );
     }
 
+    // Recheck stopped after the async probe resolves to prevent adding
+    // a peer after stop() has been called.
+    if (this.stopped) {
+      throw new Error("ManualPeerRegistry is stopped");
+    }
+
     // Cancel any previous refresh timer for this id before re-arming.
     const existing = this.records.get(device.device_id);
     if (existing !== undefined) {
@@ -292,11 +298,19 @@ export class ManualPeerRegistry {
   }
 
   /**
-   * Returns a snapshot of every currently-registered manual peer. Shallow
-   * copies — callers may mutate the array but not the devices.
+   * Returns a snapshot of every currently-registered manual peer. Returns
+   * deep clones to prevent callers from mutating internal registry or
+   * DeviceManager state.
    */
   getPeers(): Device[] {
-    return Array.from(this.records.values(), (record) => record.device);
+    return Array.from(this.records.values(), ({ device }) => ({
+      ...device,
+      interfaces: device.interfaces.map((networkInterface) => ({
+        ...networkInterface,
+        ipv4: [...networkInterface.ipv4],
+        ipv6: [...networkInterface.ipv6],
+      })),
+    }));
   }
 
   /** True once {@link stop} has been called. */

@@ -16,14 +16,16 @@ export class TauriMulticastSocket implements MulticastSocket {
   private readonly socketId = TauriMulticastSocket.nextId++;
   private messageHandler?: (
     data: Uint8Array,
-    remote: { address: string; port: number },
+    remote: { address: string; port: number }
   ) => void;
   private unlisten?: UnlistenFn;
-  private closed = false;
 
   async bind(port: number, address?: string): Promise<void> {
-    if (this.closed) {
-      throw new Error("UDP socket is closed");
+    // Dispose the previous message listener before rebinding to prevent
+    // multiple listeners from accumulating on repeated bind() calls.
+    if (this.unlisten) {
+      this.unlisten();
+      this.unlisten = undefined;
     }
     await invoke("plugin:pairsync-udp|bind", {
       socketId: this.socketId,
@@ -38,7 +40,7 @@ export class TauriMulticastSocket implements MulticastSocket {
       if (event.payload.socketId !== this.socketId) return;
       this.messageHandler?.(
         toByteArray(event.payload.data),
-        event.payload.remote,
+        event.payload.remote
       );
     });
     this.unlisten = unlisten;
@@ -47,8 +49,8 @@ export class TauriMulticastSocket implements MulticastSocket {
   onMessage(
     handler: (
       data: Uint8Array,
-      remote: { address: string; port: number },
-    ) => void,
+      remote: { address: string; port: number }
+    ) => void
   ): void {
     this.messageHandler = handler;
   }
@@ -77,8 +79,6 @@ export class TauriMulticastSocket implements MulticastSocket {
   }
 
   async close(): Promise<void> {
-    if (this.closed) return;
-    this.closed = true;
     try {
       await invoke("plugin:pairsync-udp|close", { socketId: this.socketId });
     } finally {

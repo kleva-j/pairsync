@@ -158,6 +158,41 @@ describe("TauriMulticastSocket", () => {
     });
     expect(onMessage).not.toHaveBeenCalled();
   });
+
+  it("can be rebound after close (restart lifecycle)", async () => {
+    const socket = new TauriMulticastSocket();
+    await socket.bind(DISCOVERY_PORT);
+    await socket.close();
+    // Matches core's MulticastSocket "can be restarted after a stop" contract
+    // exercised by packages/core/src/__tests__/udpDiscovery.test.ts.
+    await expect(socket.bind(DISCOVERY_PORT)).resolves.toBeUndefined();
+    expect(registeredListeners()).toHaveLength(1);
+  });
+
+  it("does not accumulate listeners on repeated bind()", async () => {
+    const socket = new TauriMulticastSocket();
+    await socket.bind(DISCOVERY_PORT);
+    await socket.bind(DISCOVERY_PORT); // rebind without an explicit close
+
+    const onMessage = vi.fn();
+    socket.onMessage(onMessage);
+
+    await emitTauriEvent("pairsync-udp:message", {
+      socketId: boundSocketId(),
+      data: "",
+      remote: { address: "10.0.0.5", port: 1000 },
+    });
+
+    expect(registeredListeners()).toHaveLength(1);
+    expect(onMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("close is idempotent", async () => {
+    const socket = new TauriMulticastSocket();
+    await socket.bind(DISCOVERY_PORT);
+    await socket.close();
+    await expect(socket.close()).resolves.toBeUndefined();
+  });
 });
 
 function boundSocketId(): number {

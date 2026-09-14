@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { DISCOVERY_PORT } from "../protocol";
+import { buildHeartbeat } from "../network";
 import { createDiscoveryRuntime } from "../discovery";
 import type { MdnsService, MulticastSocket } from "../discovery";
 import type { PlatformNetworkAdapter } from "../platform";
@@ -189,5 +190,129 @@ describe("createDiscoveryRuntime", () => {
     expect(mdnsService.unpublished).toBe(true);
     expect(mdnsService.closed).toBe(true);
     expect(runtime.deviceManager.size).toBe(0);
+  });
+
+  it("stop() still clears mDNS and the device manager when multicast.stop() throws", async () => {
+    const socket = new FakeSocket();
+    const mdnsService = new FakeMdnsService();
+    const runtime = createDiscoveryRuntime({
+      adapter: createFakeAdapter(socket, mdnsService),
+      heartbeat: createHeartbeat,
+    });
+
+    await runtime.start();
+    mdnsService.simulateServiceFound();
+    expect(runtime.deviceManager.size).toBe(1);
+
+    // Force MulticastDiscovery.stop() to propagate a rejection via socket.close().
+    vi.spyOn(socket, "close").mockRejectedValue(new Error("socket close failed"));
+
+    const rejection = await runtime.stop().catch((error) => error);
+    expect(rejection).toBeInstanceOf(AggregateError);
+    expect((rejection as AggregateError).errors).toHaveLength(1);
+    expect((rejection as AggregateError).errors[0]).toMatchObject({
+      source: "multicast",
+    });
+
+    // Both other cleanup paths still ran despite the multicast throw.
+    expect(mdnsService.unpublished).toBe(true);
+    expect(mdnsService.closed).toBe(true);
+    expect(runtime.deviceManager.size).toBe(0);
+  });
+
+  it("start() rolls back multicast when the mDNS engine start throws", async () => {
+    const socket = new FakeSocket();
+    const mdnsService = new FakeMdnsService();
+    const runtime = createDiscoveryRuntime({
+      adapter: createFakeAdapter(socket, mdnsService),
+      heartbeat: createHeartbeat,
+    });
+
+    // MdnsDiscovery.start() swallows adapter errors internally, so simulate a
+    // runtime-level failure by rejecting the composed engine's start() itself.
+    vi.spyOn(runtime.mdns, "start").mockRejectedValue(new Error("mdns start failed"));
+
+    await expect(runtime.start()).rejects.toThrow(/mdns start failed/);
+
+    // Rollback ran: the multicast socket was closed.
+    expect(socket.closed).toBe(true);
+  });
+
+  it("removes the device when mDNS loses it and no other source saw it", async () => {
+    const socket = new FakeSocket();
+    const mdnsService = new FakeMdnsService();
+    const added: string[] = [];
+    const removed: string[] = [];
+    const runtime = createDiscoveryRuntime({
+      adapter: createFakeAdapter(socket, mdnsService),
+      heartbeat: createHeartbeat,
+      deviceManager: {
+        onDeviceAdded: (device) => added.push(device.device_id),
+        onDeviceRemoved: (deviceId) => removed.push(deviceId),
+      },
+    });
+
+    await runtime.start();
+
+    // Device appears only via mDNS (no multicast traffic)
+    mdnsService.simulateServiceFound("peer-service");
+
+    expect(added).toEqual(["peer-1"]);
+    expect(runtime.deviceManager.size).toBe(1);
+
+    // mDNS loses the device and no other source saw it
+    mdnsService.simulateServiceLost("peer-service");
+
+    // Device SHOULD be removed since no sources report it
+    expect(removed).toEqual(["peer-1"]);
+    expect(runtime.deviceManager.size).toBe(0);
+
+    await runtime.stop();
+  });
+
+  it("keeps the device when mDNS loses it but multicast still saw it", async () => {
+    const socket = new FakeSocket();
+    const mdnsService = new FakeMdnsService();
+    const added: string[] = [];
+    const removed: string[] = [];
+    const runtime = createDiscoveryRuntime({
+      adapter: createFakeAdapter(socket, mdnsService),
+      heartbeat: createHeartbeat,
+      deviceManager: {
+        onDeviceAdded: (device) => added.push(device.device_id),
+        onDeviceRemoved: (deviceId) => removed.push(deviceId),
+      },
+    });
+
+    await runtime.start();
+
+    // Both sources see the same device_id.
+    socket.receive(
+      new TextEncoder().encode(
+        buildHeartbeat({
+          device_id: "peer-1",
+          alias: "Peer",
+          platform: "ios",
+          interfaces: [
+            { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
+          ],
+          port: DISCOVERY_PORT,
+        }),
+      ),
+    );
+    mdnsService.simulateServiceFound("peer-service");
+
+    expect(added).toEqual(["peer-1"]);
+    expect(runtime.deviceManager.size).toBe(1);
+
+    // mDNS loses the device — multicast still reports it.
+    mdnsService.simulateServiceLost("peer-service");
+
+    // Device MUST remain because multicast is still a source. The previous
+    // bug would have evicted the device on the first mDNS "lost" event.
+    expect(removed).toEqual([]);
+    expect(runtime.deviceManager.size).toBe(1);
+
+    await runtime.stop();
   });
 });

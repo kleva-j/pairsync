@@ -336,6 +336,50 @@ describe("ManualPeerRegistry", () => {
     );
   });
 
+  it("addPeer rejects when stop() runs while the probe is in flight", async () => {
+    let releaseProbe!: (connection: EstablishedConnection) => void;
+    const heldProbe = new Promise<EstablishedConnection>((resolve) => {
+      releaseProbe = resolve;
+    });
+
+    const initiator = new FakeConnectionInitiator();
+    initiator.connect = async (device: Device) => {
+      initiator.attempts.push(device);
+      return heldProbe;
+    };
+
+    const { registry, scheduler, deviceManager, added } = setup({ initiator });
+
+    // Kick off addPeer; it awaits the held probe.
+    const pending = registry.addPeer({ host: "192.168.1.42" });
+
+    // Stop the registry while the probe is still pending. Nothing to evict
+    // yet — the peer hasn't been recorded.
+    registry.stop();
+
+    // Now let the probe resolve; the continuation must detect stopped state
+    // and reject rather than register a leaked peer.
+    const closeSocket = new FakeSocket();
+    await closeSocket.connect("stub", DISCOVERY_PORT);
+    releaseProbe({
+      deviceId: `manual:192.168.1.42:${DISCOVERY_PORT}`,
+      address: "stub",
+      port: DISCOVERY_PORT,
+      socket: closeSocket,
+      connectedAt: 0,
+      close: () => closeSocket.close(),
+    });
+
+    await expect(pending).rejects.toThrow(/stopped/);
+
+    // Registry + DeviceManager stayed clean.
+    expect(initiator.attempts).toHaveLength(1);
+    expect(scheduler.pending).toBe(0);
+    expect(added).toEqual([]);
+    expect(deviceManager.size).toBe(0);
+    expect(registry.getPeers()).toEqual([]);
+  });
+
   it("rejects a non-positive refresh interval at construction time", () => {
     const initiator = new FakeConnectionInitiator();
     expect(
@@ -355,5 +399,33 @@ describe("ManualPeerRegistry", () => {
     expect(before).toHaveLength(1);
     before.length = 0; // mutate snapshot
     expect(registry.getPeers()).toHaveLength(1);
+  });
+
+  it("getPeers returns deep copies so callers can't mutate registry state", async () => {
+    const { registry, deviceManager } = setup();
+    await registry.addPeer({ host: "192.168.1.20" });
+
+    const [snapshot] = registry.getPeers();
+    // Mutate every mutable field on the returned snapshot.
+    snapshot!.alias = "hacked";
+    snapshot!.interfaces[0]!.ipv4.push("0.0.0.0");
+    snapshot!.interfaces[0]!.ipv6.push("::1");
+    snapshot!.interfaces.push({
+      type: "Other",
+      ipv4: [],
+      ipv6: [],
+      preferred: false,
+    });
+
+    // Registry and DeviceManager state must be untouched.
+    const [again] = registry.getPeers();
+    expect(again!.alias).toBe("Manual (192.168.1.20)");
+    expect(again!.interfaces).toHaveLength(1);
+    expect(again!.interfaces[0]!.ipv4).toEqual(["192.168.1.20"]);
+    expect(again!.interfaces[0]!.ipv6).toEqual([]);
+
+    const inManager = deviceManager.getDevice(again!.device_id)!;
+    expect(inManager.alias).toBe("Manual (192.168.1.20)");
+    expect(inManager.interfaces[0]!.ipv4).toEqual(["192.168.1.20"]);
   });
 });
