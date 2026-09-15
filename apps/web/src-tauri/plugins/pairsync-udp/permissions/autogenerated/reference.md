@@ -9,6 +9,7 @@ Allows all pairsync-udp commands
 - `allow-leave-group`
 - `allow-send`
 - `allow-close`
+- `allow-local-interfaces`
 
 ## Permission Table
 
@@ -119,6 +120,32 @@ Enables the leave_group command without any pre-configured scope.
 <td>
 
 Denies the leave_group command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pairsync-udp:allow-local-interfaces`
+
+</td>
+<td>
+
+Enables the local_interfaces command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`pairsync-udp:deny-local-interfaces`
+
+</td>
+<td>
+
+Denies the local_interfaces command without any pre-configured scope.
 
 </td>
 </tr>

@@ -343,6 +343,18 @@
           "markdownDescription": "Denies the leave_group command without any pre-configured scope."
         },
         {
+          "description": "Enables the local_interfaces command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-local-interfaces",
+          "markdownDescription": "Enables the local_interfaces command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the local_interfaces command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-local-interfaces",
+          "markdownDescription": "Denies the local_interfaces command without any pre-configured scope."
+        },
+        {
           "description": "Enables the send command without any pre-configured scope.",
           "type": "string",
           "const": "allow-send",
@@ -355,10 +367,10 @@
           "markdownDescription": "Denies the send command without any pre-configured scope."
         },
         {
-          "description": "Allows all pairsync-udp commands\n#### This default permission set includes:\n\n- `allow-bind`\n- `allow-join-group`\n- `allow-leave-group`\n- `allow-send`\n- `allow-close`",
+          "description": "Allows all pairsync-udp commands\n#### This default permission set includes:\n\n- `allow-bind`\n- `allow-join-group`\n- `allow-leave-group`\n- `allow-send`\n- `allow-close`\n- `allow-local-interfaces`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Allows all pairsync-udp commands\n#### This default permission set includes:\n\n- `allow-bind`\n- `allow-join-group`\n- `allow-leave-group`\n- `allow-send`\n- `allow-close`"
+          "markdownDescription": "Allows all pairsync-udp commands\n#### This default permission set includes:\n\n- `allow-bind`\n- `allow-join-group`\n- `allow-leave-group`\n- `allow-send`\n- `allow-close`\n- `allow-local-interfaces`"
         }
       ]
     }

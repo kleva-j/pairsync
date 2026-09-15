@@ -16,7 +16,7 @@ import { TauriMulticastSocket } from "./udp";
 
 export { TauriMdnsService } from "./mdns";
 export { TauriTcpSocket } from "./tcp";
-export { TauriMulticastSocket } from "./udp";
+export { detectTauriLocalInterfaces, TauriMulticastSocket } from "./udp";
 
 /**
  * Desktop networking adapter backed by the local Tauri plugins

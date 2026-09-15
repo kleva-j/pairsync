@@ -5,7 +5,7 @@ import { fromByteArray } from "base64-js";
 import type { MulticastSocket } from "@pairsync/core";
 import { MULTICAST_GROUPS } from "@pairsync/core";
 
-import { TauriMulticastSocket } from "./udp";
+import { TauriMulticastSocket, detectTauriLocalInterfaces } from "./udp";
 import {
   registeredListeners,
   emitTauriEvent,
@@ -24,6 +24,29 @@ beforeEach(() => {
 });
 
 describe("TauriMulticastSocket", () => {
+  it("detects local interfaces through the udp plugin", async () => {
+    vi.mocked(invoke).mockResolvedValue([
+      {
+        name: "en0",
+        type: "Ethernet",
+        ipv4: ["192.168.1.7"],
+        ipv6: [],
+        preferred: true,
+      },
+    ]);
+
+    await expect(detectTauriLocalInterfaces()).resolves.toEqual([
+      {
+        name: "en0",
+        type: "Ethernet",
+        ipv4: ["192.168.1.7"],
+        ipv6: [],
+        preferred: true,
+      },
+    ]);
+    expect(invoke).toHaveBeenCalledWith("plugin:pairsync-udp|local_interfaces");
+  });
+
   it("binds the discovery port through the udp plugin", async () => {
     const socket = new TauriMulticastSocket();
     await socket.bind(DISCOVERY_PORT);
@@ -134,6 +157,41 @@ describe("TauriMulticastSocket", () => {
       remote: { address: "10.0.0.2", port: 1000 },
     });
     expect(onMessage).not.toHaveBeenCalled();
+  });
+
+  it("can be rebound after close (restart lifecycle)", async () => {
+    const socket = new TauriMulticastSocket();
+    await socket.bind(DISCOVERY_PORT);
+    await socket.close();
+    // Matches core's MulticastSocket "can be restarted after a stop" contract
+    // exercised by packages/core/src/__tests__/udpDiscovery.test.ts.
+    await expect(socket.bind(DISCOVERY_PORT)).resolves.toBeUndefined();
+    expect(registeredListeners()).toHaveLength(1);
+  });
+
+  it("does not accumulate listeners on repeated bind()", async () => {
+    const socket = new TauriMulticastSocket();
+    await socket.bind(DISCOVERY_PORT);
+    await socket.bind(DISCOVERY_PORT); // rebind without an explicit close
+
+    const onMessage = vi.fn();
+    socket.onMessage(onMessage);
+
+    await emitTauriEvent("pairsync-udp:message", {
+      socketId: boundSocketId(),
+      data: "",
+      remote: { address: "10.0.0.5", port: 1000 },
+    });
+
+    expect(registeredListeners()).toHaveLength(1);
+    expect(onMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it("close is idempotent", async () => {
+    const socket = new TauriMulticastSocket();
+    await socket.bind(DISCOVERY_PORT);
+    await socket.close();
+    await expect(socket.close()).resolves.toBeUndefined();
   });
 });
 
