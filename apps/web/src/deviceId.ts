@@ -14,7 +14,8 @@ export const DEVICE_ID_STORAGE_KEY = "pairsync.deviceId";
  * Accepts both the current UUID format and the legacy numeric format so
  * existing installations don't regenerate their id on upgrade.
  */
-const VALID_ID_PATTERN = /^dev-(?:[0-9a-f-]{36}|\d+)$/i;
+const VALID_ID_PATTERN =
+  /^dev-(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d+)$/i;
 
 /** Minimal `localStorage`-shaped contract so the caller can inject a fake in tests. */
 export interface DeviceIdStorage {

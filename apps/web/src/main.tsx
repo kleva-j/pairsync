@@ -33,9 +33,14 @@ function getDesktopPairSyncPlatform(userAgent = navigator.userAgent): Platform {
 }
 
 function getDesktopDeviceAlias(): string {
-  return (
-    localStorage.getItem(DEVICE_ALIAS_STORAGE_KEY)?.trim() || "PairSync Desktop"
-  );
+  try {
+    return (
+      localStorage.getItem(DEVICE_ALIAS_STORAGE_KEY)?.trim() ||
+      "PairSync Desktop"
+    );
+  } catch {
+    return "PairSync Desktop";
+  }
 }
 
 const router = createRouter({
@@ -101,12 +106,16 @@ function startDesktopDiscoveryIfTauri() {
 
         await runtime.start();
 
+        let refreshGeneration = 0;
         const refreshInterfaces = async () => {
+          const generation = ++refreshGeneration;
           try {
-            interfaces = filterInterfacesForAdvertisement(
-              await detectTauriLocalInterfaces()
-            );
-            console.log("[discovery] refreshed desktop interfaces");
+            const detected = await detectTauriLocalInterfaces();
+            // Only apply result if this is still the latest generation
+            if (generation === refreshGeneration) {
+              interfaces = filterInterfacesForAdvertisement(detected);
+              console.log("[discovery] refreshed desktop interfaces");
+            }
           } catch (err) {
             console.warn("[discovery] failed to refresh interfaces:", err);
           }
