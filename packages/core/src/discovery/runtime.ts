@@ -38,6 +38,9 @@ export function createDiscoveryRuntime(
   // source still reports.
   const devicePresence = new Map<string, Set<"multicast" | "mdns">>();
 
+  // Track requested running state to prevent start/stop races
+  let requestedRunning = false;
+
   const deviceManager = new DeviceManager({
     ...options.deviceManager,
     onDeviceRemoved: (deviceId: string) => {
@@ -99,12 +102,25 @@ export function createDiscoveryRuntime(
     multicast,
     mdns,
     async start(): Promise<void> {
+      requestedRunning = true;
       try {
         await multicast.start();
+        // Check if stop was requested while multicast.start() was in flight
+        if (!requestedRunning) {
+          try {
+            await multicast.stop();
+          } catch {
+            // Best-effort cleanup
+          }
+          throw new Error("Discovery runtime start was cancelled");
+        }
         await mdns.start();
       } catch (error) {
-        // Roll back multicast if mDNS startup fails. The rollback error itself
-        // goes through `onError` (not thrown) so the original startup error can
+        // Roll back both engines if either startup fails. `MdnsDiscovery.start()`
+        // sets its internal `started` flag before the inner async work runs, so a
+        // rejection there leaves mDNS marked-started; without a rollback stop,
+        // a subsequent `start()` would short-circuit as a no-op. Rollback errors
+        // go through `onError` (not thrown) so the original startup error can
         // propagate — callers watching `onError` see the rollback failure,
         // callers catching the throw see the primary cause.
         try {
@@ -112,10 +128,16 @@ export function createDiscoveryRuntime(
         } catch (stopError) {
           options.onError?.("multicast", stopError);
         }
+        try {
+          await mdns.stop();
+        } catch (stopError) {
+          options.onError?.("mdns", stopError);
+        }
         throw error;
       }
     },
     async stop(): Promise<void> {
+      requestedRunning = false;
       const errors: Array<{ source: DiscoveryRuntimeErrorSource; error: unknown }> = [];
       try {
         await multicast.stop();
