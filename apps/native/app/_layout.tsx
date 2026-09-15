@@ -15,10 +15,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { Platform as ReactNativePlatform } from "react-native";
 import { HeroUINativeProvider } from "heroui-native";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Stack } from "expo-router";
 
 import { AppThemeProvider } from "@/contexts/app-theme-context";
+import { getNativeDeviceId } from "../src/deviceId";
 
 export const unstable_settings = {
   initialRouteName: "(drawer)",
@@ -85,9 +86,6 @@ async function detectNativeInterfaces(): Promise<NetworkInterface[]> {
 }
 
 export default function Layout() {
-  // Stable device id for this app instance (kept for the lifetime of the layout)
-  const deviceIdRef = useRef<string>(`dev-${Math.floor(Math.random() * 1e9)}`);
-
   useEffect(() => {
     // Only attempt wiring on real React Native runtimes. This guard prevents test
     // environments (jsdom) and web from importing native adapters.
@@ -100,6 +98,7 @@ export default function Layout() {
     let runtime: DiscoveryRuntime | null = null;
     let refreshTimer: ReturnType<typeof setInterval> | null = null;
     let networkSubscription: { remove: () => void } | null = null;
+    let refreshGeneration = 0;
     // Closure variable holds the current interfaces so heartbeat() can
     // always read the latest value. Scoped to this effect's lifetime; no
     // ref is needed because there are no re-renders (deps: []).
@@ -107,9 +106,14 @@ export default function Layout() {
 
     const refreshInterfaces = async () => {
       if (stopped) return;
+      const generation = ++refreshGeneration;
       try {
-        interfaces = await detectNativeInterfaces();
-        console.log("[discovery] refreshed native interfaces");
+        const newInterfaces = await detectNativeInterfaces();
+        // Only apply result if this is still the latest generation
+        if (generation === refreshGeneration) {
+          interfaces = newInterfaces;
+          console.log("[discovery] refreshed native interfaces");
+        }
       } catch (err) {
         console.warn("[discovery] failed to refresh interfaces:", err);
       }
@@ -124,6 +128,11 @@ export default function Layout() {
 
         const adapter = platformMod.createReactNativePlatformNetwork();
 
+        // Fingerprint-derived, stable across reloads on the same device.
+        // Falls back to an ephemeral id if native trait modules are
+        // unavailable — discovery still starts.
+        const deviceId = await getNativeDeviceId();
+
         // Initial interface detection
         await refreshInterfaces();
 
@@ -131,7 +140,7 @@ export default function Layout() {
         // are intentionally conservative here — apps should provide a richer
         // value in production.
         const heartbeat = (): HeartbeatPayload => ({
-          device_id: deviceIdRef.current,
+          device_id: deviceId,
           alias: getNativeDeviceAlias(),
           platform: getNativePairSyncPlatform(),
           interfaces,
