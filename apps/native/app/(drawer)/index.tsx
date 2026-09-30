@@ -1,4 +1,3 @@
-import { Button, Chip, Separator, Spinner, Surface, useThemeColor } from "heroui-native";
 import { Text, View } from "react-native";
 
 import { Container } from "@/components/container";
