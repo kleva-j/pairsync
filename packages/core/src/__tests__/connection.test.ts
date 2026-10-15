@@ -98,6 +98,22 @@ describe("ConnectionInitiator", () => {
     expect(conn.socket).toBe(socket);
   });
 
+  it("accepts the TCP port boundaries", async () => {
+    const socket = new FakeSocket();
+    const initiator = new ConnectionInitiator({
+      createSocket: () => socket,
+      sleep: async () => {},
+    });
+
+    await initiator.connect(peerDevice({ port: 1 }));
+    await initiator.connect(peerDevice({ port: 65_535 }));
+
+    expect(socket.attempts).toEqual([
+      { host: "192.168.1.20", port: 1 },
+      { host: "192.168.1.20", port: 65_535 },
+    ]);
+  });
+
   it("returns the send and receive capable platform socket", async () => {
     const socket = new FakeSocket();
     const initiator = new ConnectionInitiator({
@@ -123,7 +139,7 @@ describe("ConnectionInitiator", () => {
     });
 
     await initiator.connect(peerDevice({ port: 0 }));
-    await initiator.connect(peerDevice({ port: 70_000 }));
+    await initiator.connect(peerDevice({ port: 65_536 }));
     await initiator.connect(peerDevice({ port: 3.5 }));
 
     expect(socket.attempts).toEqual([

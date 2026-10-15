@@ -1,8 +1,10 @@
+import type { Device } from "../types";
+
+import { connectionBackoffDelay, selectConnectionCandidates } from "../network";
 import { CONNECTION_TIMEOUT } from "../constants";
 import { DISCOVERY_PORT } from "../protocol";
-import { connectionBackoffDelay, selectConnectionCandidates } from "../network";
 import { assertPositive } from "../utils";
-import type { Device } from "../types";
+import { tcpPortSchema } from "./schemas";
 
 /**
  * TCP connection initiation (Phase 2.4, N-251) — establishes the link
@@ -84,7 +86,7 @@ export class ConnectionError extends Error {
     code: ConnectionErrorCode,
     deviceId: string,
     message: string,
-    options: { attempt?: number; lastError?: unknown } = {}
+    options: { attempt?: number; lastError?: unknown } = {},
   ) {
     super(message);
     this.name = "ConnectionError";
@@ -130,14 +132,9 @@ export interface ConnectionInitiatorOptions {
   onError?: (error: ConnectionError) => void;
 }
 
-/** True for a usable TCP port (1–65535). */
-function isValidPort(port: number): boolean {
-  return Number.isInteger(port) && port >= 1 && port <= 65_535;
-}
-
 /** The port to connect on: the device's advertised port, else 53350. */
 function resolvePort(port: number): number {
-  return isValidPort(port) ? port : DISCOVERY_PORT;
+  return tcpPortSchema.safeParse(port).success ? port : DISCOVERY_PORT;
 }
 
 /**
@@ -178,7 +175,7 @@ export class ConnectionInitiator {
       throw new ConnectionError(
         "no_candidates",
         device.device_id,
-        `Device ${device.device_id} advertises no reachable connection endpoint`
+        `Device ${device.device_id} advertises no reachable connection endpoint`,
       );
     }
 
@@ -200,7 +197,7 @@ export class ConnectionInitiator {
           socket,
           candidate.address,
           port,
-          device.device_id
+          device.device_id,
         );
         const connection: EstablishedConnection = {
           deviceId: device.device_id,
@@ -225,8 +222,8 @@ export class ConnectionInitiator {
             `Connection attempt ${index + 1} to ${
               candidate.address
             }:${port} failed`,
-            { attempt: index + 1, lastError: error }
-          )
+            { attempt: index + 1, lastError: error },
+          ),
         );
       }
     }
@@ -235,7 +232,7 @@ export class ConnectionInitiator {
       lastCode,
       device.device_id,
       `Unable to connect to ${device.device_id} after ${candidates.length} attempt(s)`,
-      { attempt: candidates.length, lastError }
+      { attempt: candidates.length, lastError },
     );
   }
 
@@ -244,7 +241,7 @@ export class ConnectionInitiator {
     socket: TcpSocket,
     address: string,
     port: number,
-    deviceId: string
+    deviceId: string,
   ): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const handle = setTimeout(() => {
@@ -252,8 +249,8 @@ export class ConnectionInitiator {
           new ConnectionError(
             "timeout",
             deviceId,
-            `Connection to ${address}:${port} timed out after ${this.timeoutMs}ms`
-          )
+            `Connection to ${address}:${port} timed out after ${this.timeoutMs}ms`,
+          ),
         );
       }, this.timeoutMs);
       socket.connect(address, port).then(
@@ -264,7 +261,7 @@ export class ConnectionInitiator {
         (error) => {
           clearTimeout(handle);
           reject(error);
-        }
+        },
       );
     });
   }

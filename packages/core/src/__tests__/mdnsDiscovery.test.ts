@@ -1,13 +1,19 @@
+import type { MdnsService, MdnsDiscoveryOptions } from "../discovery";
+import type { Device, HeartbeatPayload } from "../types";
+
 import { describe, expect, it } from "vitest";
 
 import { DISCOVERY_PORT } from "../protocol";
 import { MdnsDiscovery } from "../discovery";
-import type { MdnsService, MdnsDiscoveryOptions } from "../discovery";
-import type { Device, HeartbeatPayload } from "../types";
 
 /** In-memory mDNS service implementing the platform contract. */
 class FakeMdnsService implements MdnsService {
-  advertised: Array<{ serviceType: string; name: string; port: number; txt: Record<string, string> }> = [];
+  advertised: Array<{
+    serviceType: string;
+    name: string;
+    port: number;
+    txt: Record<string, string>;
+  }> = [];
   browsed: string[] = [];
   unpublished = false;
   closed = false;
@@ -63,15 +69,13 @@ class FakeMdnsService implements MdnsService {
   }
 
   /** Simulate a service being found on the network. */
-  simulateServiceFound(
-    service: {
-      name: string;
-      ipv4: string[];
-      ipv6: string[];
-      port: number;
-      txt: Record<string, string>;
-    },
-  ): void {
+  simulateServiceFound(service: {
+    name: string;
+    ipv4: string[];
+    ipv6: string[];
+    port: number;
+    txt: Record<string, string>;
+  }): void {
     this.serviceFoundHandler?.(service);
   }
 
@@ -238,7 +242,7 @@ describe("MdnsDiscovery", () => {
   });
 
   it("reports missing device_id without crashing", async () => {
-    const { mdnsService, discovery, errors } = setup();
+    const { mdnsService, discovery, errors, seen } = setup();
     await discovery.start();
     mdnsService.simulateServiceFound({
       name: "Bad Device",
@@ -250,6 +254,23 @@ describe("MdnsDiscovery", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toBeInstanceOf(Error);
     expect((errors[0] as Error).message).toContain("device_id");
+    expect(seen).toHaveLength(0);
+    await discovery.stop();
+  });
+
+  it("reports an empty device_id without crashing", async () => {
+    const { mdnsService, discovery, errors, seen } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Empty Device ID",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: { device_id: "", alias: "Foo", platform: "ios" },
+    });
+    expect(errors).toHaveLength(1);
+    expect((errors[0] as Error).message).toContain("device_id");
+    expect(seen).toHaveLength(0);
     await discovery.stop();
   });
 
@@ -266,6 +287,26 @@ describe("MdnsDiscovery", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toBeInstanceOf(Error);
     expect((errors[0] as Error).message).toContain("alias");
+    await discovery.stop();
+  });
+
+  it("reports a non-string alias without crashing", async () => {
+    const { mdnsService, discovery, errors, seen } = setup();
+    await discovery.start();
+    mdnsService.simulateServiceFound({
+      name: "Non-string Alias",
+      ipv4: ["192.168.1.30"],
+      ipv6: [],
+      port: DISCOVERY_PORT,
+      txt: {
+        device_id: "peer-non-string-alias",
+        alias: 42 as unknown as string,
+        platform: "ios",
+      },
+    });
+    expect(errors).toHaveLength(1);
+    expect((errors[0] as Error).message).toContain("alias");
+    expect(seen).toHaveLength(0);
     await discovery.stop();
   });
 
@@ -286,7 +327,7 @@ describe("MdnsDiscovery", () => {
   });
 
   it("rejects unsupported platform values", async () => {
-    const { mdnsService, discovery, errors } = setup();
+    const { mdnsService, discovery, errors, seen } = setup();
     await discovery.start();
     mdnsService.simulateServiceFound({
       name: "Bad Platform",
@@ -297,6 +338,7 @@ describe("MdnsDiscovery", () => {
     });
     expect(errors).toHaveLength(1);
     expect((errors[0] as Error).message).toContain("beos");
+    expect(seen).toHaveLength(0);
     await discovery.stop();
   });
 
@@ -462,17 +504,24 @@ describe("MdnsDiscovery", () => {
   });
 
   it("reports null/undefined TXT record without crashing", async () => {
-    const { mdnsService, discovery, errors } = setup();
+    const { mdnsService, discovery, errors, seen } = setup();
     await discovery.start();
-    mdnsService.simulateServiceFound({
-      name: "Null TXT",
-      ipv4: ["192.168.1.30"],
-      ipv6: [],
-      port: DISCOVERY_PORT,
-      txt: null as unknown as Record<string, string>,
-    });
-    expect(errors).toHaveLength(1);
-    expect((errors[0] as Error).message).toContain("empty or missing");
+    for (const [index, txt] of [null, undefined].entries()) {
+      mdnsService.simulateServiceFound({
+        name: `${txt === null ? "Null" : "Undefined"} TXT ${index}`,
+        ipv4: ["192.168.1.30"],
+        ipv6: [],
+        port: DISCOVERY_PORT,
+        txt: txt as unknown as Record<string, string>,
+      });
+    }
+    expect(errors).toHaveLength(2);
+    expect(
+      errors.every((error) =>
+        (error as Error).message.includes("empty or missing"),
+      ),
+    ).toBe(true);
+    expect(seen).toHaveLength(0);
     await discovery.stop();
   });
 
@@ -522,8 +571,8 @@ describe("MdnsDiscovery", () => {
     };
 
     const startPromise = discovery.start(); // blocked on advertise
-    const stopPromise = discovery.stop();   // queues behind startPromise
-    releaseAdvertise();                     // unblocks advertise -> rollback
+    const stopPromise = discovery.stop(); // queues behind startPromise
+    releaseAdvertise(); // unblocks advertise -> rollback
     await startPromise;
     await stopPromise;
 
@@ -545,7 +594,7 @@ describe("MdnsDiscovery", () => {
     };
 
     const startPromise = discovery.start(); // blocked on advertise
-    const stopPromise = discovery.stop();   // should wait for start
+    const stopPromise = discovery.stop(); // should wait for start
     releaseAdvertise();
     await startPromise;
     await stopPromise;

@@ -1,6 +1,7 @@
 import type { MdnsService, MulticastSocket, TcpSocket } from "../discovery";
-import { getPlatform } from "../utils";
 import type { RuntimePlatform } from "../utils";
+
+import { getPlatform } from "../utils";
 
 export type NetworkCapability = "udp" | "mdns" | "tcp";
 
@@ -68,43 +69,48 @@ function unsupported(runtime: RuntimePlatform, capability: NetworkCapability): P
   return Promise.reject(new PlatformNetworkUnsupportedError(runtime, capability));
 }
 
+function unsupportedOperation(runtime: RuntimePlatform, capability: NetworkCapability) {
+  return (..._args: unknown[]) => unsupported(runtime, capability);
+}
+
+const noop = () => {};
+const noopAsync = async () => {};
+
 export function createUnsupportedMulticastSocket(
   runtime: RuntimePlatform,
 ): MulticastSocket {
+  const unsupportedUdpOperation = unsupportedOperation(runtime, "udp");
+
   return {
-    bind: () => unsupported(runtime, "udp"),
-    onMessage: () => {
-      // Unsupported adapters never emit network data.
-    },
-    send: () => unsupported(runtime, "udp"),
-    joinGroup: () => unsupported(runtime, "udp"),
-    leaveGroup: () => unsupported(runtime, "udp"),
-    close: () => Promise.resolve(),
+    bind: unsupportedUdpOperation,
+    onMessage: noop,
+    send: unsupportedUdpOperation,
+    joinGroup: unsupportedUdpOperation,
+    leaveGroup: unsupportedUdpOperation,
+    close: noopAsync,
   };
 }
 
 export function createUnsupportedMdnsService(runtime: RuntimePlatform): MdnsService {
+  const unsupportedMdnsOperation = unsupportedOperation(runtime, "mdns");
+
   return {
-    advertise: () => unsupported(runtime, "mdns"),
-    browse: () => unsupported(runtime, "mdns"),
-    onServiceFound: () => {
-      // Unsupported adapters never emit service events.
-    },
-    onServiceLost: () => {
-      // Unsupported adapters never emit service events.
-    },
-    unpublish: () => Promise.resolve(),
-    close: () => Promise.resolve(),
+    advertise: unsupportedMdnsOperation,
+    browse: unsupportedMdnsOperation,
+    onServiceFound: noop,
+    onServiceLost: noop,
+    unpublish: noopAsync,
+    close: noopAsync,
   };
 }
 
 export function createUnsupportedTcpSocket(runtime: RuntimePlatform): TcpSocket {
+  const unsupportedTcpOperation = unsupportedOperation(runtime, "tcp");
+
   return {
-    connect: () => unsupported(runtime, "tcp"),
-    send: () => unsupported(runtime, "tcp"),
-    onData: () => {
-      // Unsupported adapters never emit stream data.
-    },
-    close: () => Promise.resolve(),
+    connect: unsupportedTcpOperation,
+    send: unsupportedTcpOperation,
+    onData: noop,
+    close: noopAsync,
   };
 }

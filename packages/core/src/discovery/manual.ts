@@ -3,11 +3,11 @@ import ipaddr from "ipaddr.js";
 import type { DeviceManager } from "./deviceManager";
 import type { Device } from "../types";
 
+import { ConnectionError, type ConnectionInitiator } from "./connection";
 import { isLoopbackAddress, normalizeAddress } from "../network";
 import { HEARTBEAT_INTERVAL } from "../constants";
 import { DISCOVERY_PORT } from "../protocol";
-
-import { ConnectionError, type ConnectionInitiator } from "./connection";
+import { tcpPortSchema } from "./schemas";
 
 /**
  * Manual peer entry (Phase 2.8, PRD Tier 3) — the fallback when both UDP
@@ -53,7 +53,7 @@ export class ManualPeerError extends Error {
   ) {
     super(message);
     this.name = "ManualPeerError";
-    this.code = code; 
+    this.code = code;
     this.host = host;
     this.port = port;
     if (cause !== undefined) this.cause = cause;
@@ -97,11 +97,6 @@ export interface ManualPeerRegistryOptions {
   scheduler?: ManualPeerScheduler;
   /** Injectable clock for `last_seen_at` (default `Date.now`). */
   now?: () => number;
-}
-
-/** True for a usable TCP port (1–65535). */
-function isValidPort(port: number): boolean {
-  return Number.isInteger(port) && port >= 1 && port <= 65_535;
 }
 
 /**
@@ -222,7 +217,7 @@ export class ManualPeerRegistry {
       throw new Error("ManualPeerRegistry is stopped");
     }
     const port = input.port ?? DISCOVERY_PORT;
-    if (!isValidPort(port)) {
+    if (!tcpPortSchema.safeParse(port).success) {
       throw new ManualPeerError(
         "invalid_port",
         input.host,

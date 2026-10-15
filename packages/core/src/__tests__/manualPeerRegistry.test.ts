@@ -1,20 +1,21 @@
-import { describe, expect, it } from "vitest";
-
-import { HEARTBEAT_INTERVAL } from "../constants";
-import { DISCOVERY_PORT } from "../protocol";
-import {
-  ConnectionError,
-  ConnectionInitiator,
-  DeviceManager,
-  ManualPeerError,
-  ManualPeerRegistry,
-} from "../discovery";
+import type { ConnectionInitiator } from "../discovery";
+import type { Device } from "../types";
 import type {
   EstablishedConnection,
   ManualPeerScheduler,
   TcpSocket,
 } from "../discovery";
-import type { Device } from "../types";
+
+import { describe, expect, it } from "vitest";
+
+import { HEARTBEAT_INTERVAL } from "../constants";
+import { DISCOVERY_PORT } from "../protocol";
+import {
+  ManualPeerRegistry,
+  ConnectionError,
+  ManualPeerError,
+  DeviceManager,
+} from "../discovery";
 
 /** Minimal in-memory TCP socket driven by the fake initiator below. */
 class FakeSocket implements TcpSocket {
@@ -180,6 +181,17 @@ describe("ManualPeerRegistry", () => {
     expect(device.alias).toBe("Office Mac");
   });
 
+  it("accepts the TCP port boundaries", async () => {
+    const { registry, initiator } = setup();
+
+    const low = await registry.addPeer({ host: "10.0.0.5", port: 1 });
+    const high = await registry.addPeer({ host: "10.0.0.6", port: 65_535 });
+
+    expect(low.port).toBe(1);
+    expect(high.port).toBe(65_535);
+    expect(initiator.attempts.map(({ port }) => port)).toEqual([1, 65_535]);
+  });
+
   it("closes the probe connection after a successful reachability check", async () => {
     const { registry, initiator } = setup();
     await registry.addPeer({ host: "192.168.1.20" });
@@ -188,10 +200,12 @@ describe("ManualPeerRegistry", () => {
 
   it("throws ManualPeerError for a malformed host", async () => {
     const { registry, initiator } = setup();
-    await expect(registry.addPeer({ host: "not-an-ip" })).rejects.toMatchObject({
-      name: "ManualPeerError",
-      code: "invalid_address",
-    });
+    await expect(registry.addPeer({ host: "not-an-ip" })).rejects.toMatchObject(
+      {
+        name: "ManualPeerError",
+        code: "invalid_address",
+      },
+    );
     // Reachability probe must not run when validation fails.
     expect(initiator.attempts).toHaveLength(0);
   });
@@ -213,17 +227,16 @@ describe("ManualPeerRegistry", () => {
     });
   });
 
-  it("throws ManualPeerError for an out-of-range port", async () => {
+  it("throws ManualPeerError for an invalid port", async () => {
     const { registry } = setup();
-    await expect(
-      registry.addPeer({ host: "192.168.1.20", port: 0 }),
-    ).rejects.toMatchObject({ code: "invalid_port" });
-    await expect(
-      registry.addPeer({ host: "192.168.1.20", port: 70_000 }),
-    ).rejects.toMatchObject({ code: "invalid_port" });
-    await expect(
-      registry.addPeer({ host: "192.168.1.20", port: 3.5 }),
-    ).rejects.toMatchObject({ code: "invalid_port" });
+    for (const port of [0, 65_536, 3.5]) {
+      const addPeer = registry.addPeer({ host: "192.168.1.20", port });
+      await expect(addPeer).rejects.toBeInstanceOf(ManualPeerError);
+      await expect(addPeer).rejects.toMatchObject({
+        code: "invalid_port",
+        message: `Manual peer port ${port} is out of range (1-65535)`,
+      });
+    }
   });
 
   it("throws ManualPeerError with cause when the peer is unreachable", async () => {

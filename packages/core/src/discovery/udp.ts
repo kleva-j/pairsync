@@ -51,7 +51,12 @@ export interface MulticastSocket {
   /** Binds the socket before group membership or sends. */
   bind(port: number, address?: string): Promise<void>;
   /** Registers the inbound-datagram handler (called by the adapter). */
-  onMessage(handler: (data: Uint8Array, remote: { address: string; port: number }) => void): void;
+  onMessage(
+    handler: (
+      data: Uint8Array,
+      remote: { address: string; port: number },
+    ) => void,
+  ): void;
   /** Sends a datagram to `address:port`. */
   send(data: Uint8Array, port: number, address: string): Promise<void>;
   /** Joins a multicast group, optionally on a specific interface. */
@@ -130,7 +135,10 @@ export class MulticastDiscovery {
     this.heartbeat = options.heartbeat;
     this.scheduler = options.scheduler ?? defaultDiscoveryScheduler;
     this.intervalMs = options.intervalMs ?? HEARTBEAT_INTERVAL;
-    this.groups = options.groups ?? [MULTICAST_GROUPS.IPV4, MULTICAST_GROUPS.IPV6];
+    this.groups = options.groups ?? [
+      MULTICAST_GROUPS.IPV4,
+      MULTICAST_GROUPS.IPV6,
+    ];
     this.now = options.now ?? (() => Date.now());
     this.onDeviceSeen = options.onDeviceSeen;
     this.onError = options.onError;
