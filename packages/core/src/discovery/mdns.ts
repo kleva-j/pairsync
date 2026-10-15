@@ -1,6 +1,7 @@
-import { SERVICE_TYPE, PROTOCOL_VERSION } from "../protocol";
-import { PLATFORM_VALUES } from "../types";
 import type { Device, HeartbeatPayload, Platform } from "../types";
+
+import { SERVICE_TYPE, PROTOCOL_VERSION } from "../protocol";
+import { mdnsTxtSchema } from "./schemas";
 
 /**
  * mDNS discovery (Phase 2.2, N-249) — Tier 2 of the discovery stack.
@@ -111,22 +112,23 @@ function parseTxtRecord(txt: Record<string, string> | undefined | null): {
   if (!txt || typeof txt !== "object") {
     throw new Error("mDNS TXT record is empty or missing");
   }
-  const { device_id, alias, platform } = txt;
-  if (typeof device_id !== "string" || device_id.length === 0) {
-    throw new Error("mDNS TXT record missing device_id");
+  const result = mdnsTxtSchema.safeParse(txt);
+  if (!result.success) {
+    const field = result.error.issues[0]?.path[0];
+    if (field === "device_id") {
+      throw new Error("mDNS TXT record missing device_id");
+    }
+    if (field === "alias") {
+      throw new Error("mDNS TXT record missing alias");
+    }
+    if (field === "platform") {
+      throw new Error(
+        `mDNS TXT record has invalid platform: ${String(txt.platform)}`,
+      );
+    }
+    throw new Error("mDNS TXT record is invalid");
   }
-  if (typeof alias !== "string") {
-    throw new Error("mDNS TXT record missing alias");
-  }
-  if (
-    typeof platform !== "string" ||
-    !(PLATFORM_VALUES as readonly string[]).includes(platform)
-  ) {
-    throw new Error(
-      `mDNS TXT record has invalid platform: ${String(platform)}`,
-    );
-  }
-  return { device_id, alias, platform: platform as Platform };
+  return result.data;
 }
 
 /**
@@ -227,6 +229,7 @@ export class MdnsDiscovery {
     this.startPromise = run.finally(() => {
       this.startPromise = null;
     });
+
     return this.startPromise;
   }
 

@@ -1,7 +1,8 @@
+import type { Device } from "../types";
+
 import fastDeepEqual from "fast-deep-equal";
 
 import { HEARTBEAT_TIMEOUT } from "../constants";
-import type { Device } from "../types";
 
 /** Options for {@link DeviceManager}. All optional. */
 export interface DeviceManagerOptions {
