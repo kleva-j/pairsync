@@ -143,6 +143,23 @@ apps/native/
 
 Context-specific ADRs are stored in `apps/native/docs/adr/`. Root-level ADRs in `docs/adr/` apply to the entire monorepo.
 
+## iOS Multicast Entitlement
+
+The `com.apple.developer.networking.multicast` entitlement is added automatically by the `withMulticastEntitlement` config plugin (`apps/native/plugins/withMulticastEntitlement.js`) during `expo prebuild`.
+
+**Apple approval requirement:** This entitlement is a managed capability that requires explicit approval from Apple. Approval is required for **all** distribution types — App Store, TestFlight, and development profiles. Without an approved and regenerated provisioning profile that includes the entitlement, signing will fail or `addMembership()` will not function.
+
+Approval and setup steps:
+
+1. Submit a request at https://developer.apple.com/contact/request/networking-multicast
+2. After approval, enable the capability for the app's explicit App ID in Certificates, Identifiers & Profiles (developer.apple.com)
+3. Regenerate the relevant provisioning profile (development and/or distribution) — it must be regenerated after step 2 to include the entitlement
+4. Verify the downloaded profile contains `com.apple.developer.networking.multicast`
+
+- Reference: https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.networking.multicast
+
+The `NSLocalNetworkUsageDescription` key is also set by the same plugin, which provides the user-facing permission prompt text when the app first accesses the local network.
+
 ---
 
 **For more information:** See `CONTEXT-MAP.md` at the repo root for the full monorepo structure.

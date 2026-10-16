@@ -14,7 +14,11 @@
     "android": {
       "package": "com.pairsync.app"
     },
-    "plugins": ["expo-font"],
+    "plugins": [
+      "expo-font",
+      "./plugins/withMulticastEntitlement",
+      "./plugins/withAndroidMulticastPermissions"
+    ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
