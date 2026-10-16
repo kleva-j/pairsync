@@ -11,18 +11,21 @@
     "./postcss.config": "./postcss.config.mjs"
   },
   "scripts": {
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "lint": "oxlint ."
   },
   "dependencies": {
-    "@base-ui/react": "^1.6.0",
-    "@shadcn/react": "^0.2.1",
+    "@base-ui/react": "^1.8.0",
+    "@fontsource-variable/instrument-sans": "^5.1.2",
+    "@fontsource-variable/noto-sans": "^5.1.2",
+    "@shadcn/react": "^0.3.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "shadcn": "^4.16.0",
+    "shadcn": "^4.21.0",
     "sonner": "catalog:",
     "tailwind-merge": "catalog:",
     "tw-animate-css": "^1.4.0"
@@ -30,7 +33,7 @@
   "devDependencies": {
     "@pairsync/config": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
-    "@types/react": "^19.2.17",
+    "@types/react": "^19.2.18",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
     "typescript": "^6.0.3"

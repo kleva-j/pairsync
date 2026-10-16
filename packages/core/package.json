@@ -8,6 +8,7 @@
   },
   "scripts": {
     "check-types": "tsc --noEmit",
+    "lint": "oxlint .",
     "test": "vitest run"
   },
   "dependencies": {
