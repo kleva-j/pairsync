@@ -10,9 +10,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  TURBO_CACHE_DIR: .turbo
-
 permissions:
   contents: read
 
@@ -23,14 +20,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Cache turbo build cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -56,14 +45,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache turbo build cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -79,7 +60,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Test
-        run: "pnpm exec turbo run test --filter '!native'"
+        run: "pnpm vp run --filter '!native' test"
 
   native-test:
     name: Run native tests (jest)
@@ -88,14 +69,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Cache turbo build cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
@@ -111,7 +84,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Test
-        run: "pnpm exec turbo run test --filter native"
+        run: "pnpm vp run --filter native test"
 
   build:
     name: Build all packages
@@ -119,14 +92,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Cache turbo build cache
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-turbo-
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4

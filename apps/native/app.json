@@ -4,7 +4,8 @@
     "userInterfaceStyle": "automatic",
     "orientation": "default",
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "output": "static"
     },
     "name": "pairsync",
     "slug": "pairsync",
@@ -12,10 +13,22 @@
       "bundleIdentifier": "com.pairsync.app"
     },
     "android": {
-      "package": "com.pairsync.app"
+      "package": "com.pairsync.app",
+      "predictiveBackGestureEnabled": false
     },
     "plugins": [
+      "expo-router",
       "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "backgroundColor": "#000000"
+          }
+        }
+      ],
       "./plugins/withMulticastEntitlement",
       "./plugins/withAndroidMulticastPermissions"
     ],

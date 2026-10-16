@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "serve": "vite preview",
-    "start": "vite",
-    "check-types": "vite build && tsc --noEmit",
+    "dev": "vp dev",
+    "build": "vp build",
+    "serve": "vp preview",
+    "start": "vp dev",
+    "check-types": "vp build && tsc --noEmit",
+    "lint": "oxlint .",
     "test": "vitest run",
     "tauri": "tauri",
     "desktop:dev": "tauri dev",
@@ -16,18 +17,18 @@
   },
   "dependencies": {
     "@pairsync/core": "workspace:*",
-    "@pairsync/env": "workspace:*",
     "@pairsync/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-router": "^1.170.44",
     "@tauri-apps/api": "^2.11.1",
+    "@varlock/vite-integration": "1.5.1",
     "base64-js": "catalog:",
-    "dotenv": "catalog:",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "sonner": "catalog:",
+    "varlock": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -44,7 +45,7 @@
     "postcss": "^8.5.30",
     "tailwindcss": "catalog:",
     "typescript": "^6.0.3",
-    "vite": "^8.1.5",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0",
     "vitest": "catalog:"
   }
 }

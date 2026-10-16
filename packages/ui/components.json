@@ -1,16 +1,15 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-lyra",
+  "style": "base-mira",
   "rsc": false,
   "tsx": true,
   "tailwind": {
     "config": "",
     "css": "src/styles/globals.css",
     "baseColor": "neutral",
-    "cssVariables": true,
-    "prefix": ""
+    "cssVariables": true
   },
-  "iconLibrary": "lucide",
+  "iconLibrary": "phosphor",
   "aliases": {
     "components": "@pairsync/ui/components",
     "utils": "@pairsync/ui/lib/utils",
@@ -18,7 +17,8 @@
     "lib": "@pairsync/ui/lib",
     "ui": "@pairsync/ui/components"
   },
+  "rtl": true,
   "menuColor": "default",
-  "menuAccent": "subtle",
+  "menuAccent": "bold",
   "registries": {}
 }

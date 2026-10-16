@@ -8,7 +8,9 @@ const peerDevice = (id = "peer-1", alias = "Peer"): Device => ({
   device_id: id,
   alias,
   platform: "ios",
-  interfaces: [{ type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true }],
+  interfaces: [
+    { type: "Wi-Fi", ipv4: ["192.168.1.20"], ipv6: [], preferred: true },
+  ],
   port: 53350,
   last_seen_at: 1_000,
 });
@@ -159,7 +161,6 @@ describe("DeviceManager", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
     const manager = new DeviceManager({
-
       onDeviceRemoved: (id) => removed.push(id),
     });
     manager.addOrUpdate(peerDevice("peer-1"));
@@ -186,7 +187,6 @@ describe("DeviceManager", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
     const manager = new DeviceManager({
-
       onDeviceRemoved: (id) => removed.push(id),
     });
     manager.addOrUpdate(peerDevice("peer-1"));
@@ -211,7 +211,6 @@ describe("DeviceManager", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
     const manager = new DeviceManager({
-
       onDeviceRemoved: (id) => removed.push(id),
     });
     manager.addOrUpdate(peerDevice("peer-1"));
@@ -227,7 +226,6 @@ describe("DeviceManager", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
     const manager = new DeviceManager({
-
       onDeviceRemoved: (id) => removed.push(id),
     });
     manager.addOrUpdate(peerDevice("peer-1"));
@@ -250,17 +248,14 @@ describe("DeviceManager", () => {
 
   it("tracks multiple devices independently", () => {
     vi.useFakeTimers();
-    let now = 1_000_000;
     const removed: string[] = [];
     const manager = new DeviceManager({
-
       onDeviceRemoved: (id) => removed.push(id),
     });
     manager.addOrUpdate(peerDevice("peer-1", "A"));
     // Advance fake clock by 1s so the two setTimeout calls land at
     // different absolute times (peer-1 at 25000, peer-2 at 26000).
     vi.advanceTimersByTime(1_000);
-    now += 1_000;
     manager.addOrUpdate(peerDevice("peer-2", "B"));
 
     // Advance to just past peer-1's timeout (fake time 25001) but
@@ -293,15 +288,18 @@ describe("DeviceManager", () => {
   it("rejects invalid timeoutMs values", () => {
     expect(() => new DeviceManager({ timeoutMs: 0 })).toThrow(RangeError);
     expect(() => new DeviceManager({ timeoutMs: -1 })).toThrow(RangeError);
-    expect(() => new DeviceManager({ timeoutMs: NaN })).toThrow(RangeError);
-    expect(() => new DeviceManager({ timeoutMs: Infinity })).toThrow(RangeError);
+    expect(() => new DeviceManager({ timeoutMs: Number.NaN })).toThrow(
+      RangeError,
+    );
+    expect(
+      () => new DeviceManager({ timeoutMs: Number.POSITIVE_INFINITY }),
+    ).toThrow(RangeError);
   });
 
   it("configurable timeout", () => {
     vi.useFakeTimers();
     const removed: string[] = [];
     const manager = new DeviceManager({
-
       timeoutMs: 10_000, // 10s instead of 25s
       onDeviceRemoved: (id) => removed.push(id),
     });
