@@ -7,24 +7,33 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "turbo run dev",
-    "build": "turbo run build",
-    "build:desktop": "pnpm --filter web desktop:build",
-    "check-types": "turbo run check-types",
-    "test": "turbo run test",
-    "dev:native": "turbo run dev -F native --",
-    "dev:web": "turbo run dev -F web --"
+    "dev": "vp run -r dev",
+    "build": "vp run -r build",
+    "check-types": "vp run -r check-types",
+    "check": "oxlint && oxfmt --write",
+    "lint": "vp lint",
+    "format": "vp fmt",
+    "test": "vp run -r test",
+    "staged": "vp staged",
+    "hooks:setup": "vp config",
+    "dev:native": "vp run --filter native dev",
+    "dev:web": "vp run --filter web dev",
+    "env:generate": "varlock codegen --path ./apps/web/ && varlock codegen --path ./apps/native/",
+    "postinstall": "varlock codegen --path ./apps/web/ || true && varlock codegen --path ./apps/native/ || true",
+    "build:desktop": "pnpm --filter web desktop:build"
   },
   "dependencies": {
-    "@pairsync/env": "workspace:*",
-    "dotenv": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@pairsync/config": "workspace:*",
     "@types/node": "^22.20.5",
-    "turbo": "^2.10.7",
-    "typescript": "^6.0.3"
+    "oxfmt": "^0.72.0",
+    "oxlint": "^1.87.0",
+    "rolldown": "1.2.13",
+    "typescript": "^6.0.3",
+    "varlock": "catalog:",
+    "vite-plus": "1.1.0"
   },
   "packageManager": "pnpm@11.21.0"
 }
